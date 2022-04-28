@@ -1,0 +1,22 @@
+from launch_ros.actions import Node
+
+from launch import LaunchDescription
+
+def generate_launch_description():
+    return LaunchDescription(
+        [
+            Node(
+                package="{{ prj_name }}_fpga_node",
+                node_executable="listener",
+                node_name="listener_%s" %  ip_name,
+                parameters=[
+                    {
+                        "fpga_out_topic": "fpga_out_topic_%s" % ip_name,
+                        "msg_type_suffix": str(map_num)
+                    }
+                ],
+                output="screen",
+            )
+            for ip_name, map_num in {{ ip_map_nums }}.items()
+        ]
+    )

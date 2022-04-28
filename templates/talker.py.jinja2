@@ -1,33 +1,43 @@
+import sys
+import random
 import rclpy
 from rclpy.node import Node
+from rosidl_runtime_py import get_interface_path
+from rosidl_adapter.parser import parse_message_file
+from {{ prj_name }}_interface.msg import *
 
-import random
-
-from {{ prj_name }}_interface.msg import FpgaIn
 
 class TalkerNode(Node):
 
     def __init__(self):
         super().__init__('talker')
-        self.publisher_ = self.create_publisher(FpgaIn, 'fpga_in_topic', {{ qos }})
+        self.declare_parameter("fpga_in_topic", "fpga_in_topic_{{ ip_name }}")
+        self.declare_parameter("msg_type_suffix", "1")
+        fpga_in_topic = self.get_parameter("fpga_in_topic").value
+        msg_type_suffix = self.get_parameter("msg_type_suffix").value
+        self.FpgaIn = getattr(sys.modules["{{ prj_name }}_interface.msg"], "FpgaIn"+msg_type_suffix)
+        self.message_spec = parse_message_file("{{ prj_name }}_interface", get_interface_path("{{ prj_name }}_interface/msg/FpgaIn"+msg_type_suffix))
+        self.publisher_ = self.create_publisher(self.FpgaIn, fpga_in_topic, {{ qos }})
         timer_period = 2  # Frequency of publishing
         self.timer = self.create_timer(timer_period, self.timer_callback)
 
+    def generate_pub_data(self, msg, field, rand_func, args):
+        if field.type.is_array:
+            for idx in range(field.type.array_size):
+                getattr(msg, field.name)[idx] = rand_func(*args)
+        else:
+            setattr(msg, field.name, rand_func(*args))
+
+        return msg
+
     def timer_callback(self):
-        msg = FpgaIn()
-        {%- for in_signal, desc in in_map.items() %}
-        {%- if desc.type == "int" and desc.arr == False %}
-        msg.{{ in_signal }} = random.randint(0, 5)
-        {%- elif desc.type == "float" and desc.arr == False %}
-        msg.{{ in_signal }} = random.random()
-        {%- elif desc.type == "int" and desc.arr == True %}
-        for i in range({{ desc.n_elem }}):
-            msg.{{ in_signal }}[i] = random.randint(0, 5) 
-        {%- elif desc.type == "float" and desc.arr == True %}
-        for i in range({{ desc.n_elem }}):
-            msg.{{ in_signal }}[i] = random.random()
-        {%- endif %}
-        {%- endfor %}
+        msg = self.FpgaIn()
+        for field in self.message_spec.fields:
+            if "int" in field.type.type:
+                msg = self.generate_pub_data(msg, field, random.randint, [0, 5])
+            elif "float" in field.type.type:
+                msg = self.generate_pub_data(msg, field, random.uniform, [0.0, 5.0])
+
         self.publisher_.publish(msg)
         self.get_logger().info("Publishing: {}".format(msg))
 

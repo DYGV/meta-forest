@@ -6,10 +6,16 @@ Absolute ROS2 dev_ws path:
 
 Absolute FPGA .bit file path:
 
+{% for n_ip in range(n_ips) %}
+**** User IP {{ n_ip+1 }} definition ****
+// User IP {{ n_ip+1 }}
 User IP name:
 
-**** 2- Input definitions ****
-{% for i in range(n_in) %}
+// DMA for User IP {{ n_ip+1 }} (if AXI-Stream)
+DMA IP name:
+
+**** User IP {{ n_ip+1 }}: Input definitions ****
+{% for i in range(n_in[n_ip]) %}
 // Input {{ i+1 }}
 
 Input name:
@@ -19,9 +25,10 @@ Protocol:
 Type:
 
 Address Offset (if AXI-Lite):
+
 {% endfor %}
-**** 3- Output definitions ****
-{% for i in range(n_out) %}
+**** User IP {{ n_ip+1 }}: Output definitions ****
+{% for i in range(n_out[n_ip]) %}
 // Output {{ i+1 }}
 
 Output name:
@@ -31,5 +38,6 @@ Protocol:
 Type:
 
 Address Offset (if AXI-Lite):
-{% endfor %}
 
+{% endfor %}
+{% endfor %}

@@ -1,24 +1,50 @@
-import time
+import functools
+import json
 import struct
+import time
+
 import numpy as np
-from pynq import Overlay
-from pynq import MMIO
-from pynq import allocate
 import pynq.lib.dma
+from ament_index_python.packages import get_package_share_directory
+from pynq import MMIO, Overlay, allocate
+
+print = functools.partial(print, flush=True)
 
 
 class FpgaDriver():
 
-    def __init__(self):
+    def __init__(self, user_ip):
         # FPGA bit file
         self.bit_file = "{{ bit_file }}"
+        self.ovl = Overlay(self.bit_file, download=False)
         # User IP
-        self.user_ip = "{{ ip_name }}"
+        self.user_ip = user_ip
+
+    def update_map(self, user_ip):
+        if not user_ip:
+            return
+        io_maps_json = open(get_package_share_directory("{{ prj_name }}_fpga_node") + '/io_maps.json', "r")
+        io_maps = json.load(io_maps_json)
+        io_maps_json.close()
+        self.map_num_str = str(io_maps["map_num"][user_ip])
+
         # Define the arrays that hold the information about the input and output
         # signals. If the value corresponds to a double or float variable, it is        
         # in IEEE-754 representation
-        self.in_map = {{ in_map }}
-        self.out_map = {{ out_map }}
+        self.in_map = io_maps["maps"][self.map_num_str]["input"]
+        self.out_map = io_maps["maps"][self.map_num_str]["output"]
+        self.dma_name = io_maps["dma"][user_ip]
+        self.has_axis_in = self.has_axis(self.in_map)
+        self.has_axis_out = self.has_axis(self.out_map)
+
+    @property
+    def user_ip(self):
+        return self.__user_ip
+
+    @user_ip.setter
+    def user_ip(self, ip_name):
+        self.__user_ip = ip_name
+        self.update_map(ip_name)
 
     def reg_write(self, offset, data):
        print("reg_write(0x{:04X}, 0x{:08X})".format(offset, data))
@@ -31,61 +57,49 @@ class FpgaDriver():
     def program_fpga(self):
         # Program the FPGA and set the Overlay
         print("Downloading bit file {}...".format(self.bit_file))
-        self.ovl = Overlay(self.bit_file)
+        self.ovl.download()
         print("Bit file downloaded")
 
     def setup_fpga(self):
         # Set the MMIO and DMA classes 
-        #print("ovl.ip_dict.keys() = ",self.ovl.ip_dict.keys())
         regs = self.ovl.ip_dict[self.user_ip]
         phys_addr = regs["phys_addr"]
         addr_range = regs["addr_range"]
         print("User IP phys_addr = 0x{:X}".format(phys_addr))
         print("User IP addr_range = {}".format(addr_range))
         self.mmio = MMIO(phys_addr, addr_range)
-        {%- if has_axis_in or has_axis_out %}
-        self.dma = self.ovl.axi_dma_0
-        {%- endif %}
-        {%- if has_axis_in %}
-        for signal_name in self.in_map.keys():
-            if self.in_map[signal_name]["protocol"] == "stream":
-                signal_type = self.in_map[signal_name]["type"]
-                n_bits = self.in_map[signal_name]["n_bits"]
-                arr_size = self.in_map[signal_name]["n_elem"]
+        if self.dma_name:
+            self.dma = getattr(self.ovl, self.dma_name)
+        if self.has_axis_in:
+            self.input_buffer = self.allocate_dma_buffer(self.in_map)
+        if self.has_axis_out:
+            self.output_buffer = self.allocate_dma_buffer(self.out_map)
+
+    def has_axis(self, io_map):
+        has_axis = False
+        for signal_name in io_map.keys():
+            has_axis |= (io_map[signal_name]["protocol"] == "stream")
+        return has_axis
+
+    def allocate_dma_buffer(self, io_map):
+        for signal_name in io_map.keys():
+            if io_map[signal_name]["protocol"] == "stream":
+                signal_type = io_map[signal_name]["type"]
+                n_bits = io_map[signal_name]["n_bits"]
+                arr_size = io_map[signal_name]["n_elem"]
                 # case 1 - int32
                 if signal_type == "int" and n_bits == 32:
-                    self.input_buffer = allocate(shape=(arr_size,), dtype=np.int32)
+                    allocated_buffer = allocate(shape=(arr_size,), dtype=np.int32)
                 # case 2 - uint8
                 if signal_type == "int" and n_bits == 8:
-                    self.input_buffer = allocate(shape=(arr_size,), dtype=np.uint8)
-		# case 3 - uint64
+                    allocated_buffer = allocate(shape=(arr_size,), dtype=np.uint8)
+                # case 3 - uint64
                 if signal_type == "int" and n_bits == 64:
-                    self.input_buffer = allocate(shape=(arr_size,), dtype=np.uint64)
+                    allocated_buffer = allocate(shape=(arr_size,), dtype=np.uint64)
                 # case 4 - float32
                 if signal_type == "float" and n_bits == 32:
-                    self.input_buffer = allocate(shape=(arr_size,), dtype=np.float32)
-
-        {%- endif %}
-        {%- if has_axis_out %}
-        for signal_name in self.out_map.keys():
-            if self.out_map[signal_name]["protocol"] == "stream":
-                signal_type = self.out_map[signal_name]["type"]
-                n_bits = self.out_map[signal_name]["n_bits"]
-                arr_size = self.out_map[signal_name]["n_elem"]
-                # case 1 - int32
-                if signal_type == "int" and n_bits == 32:
-                    self.output_buffer = allocate(shape=(arr_size,), dtype=np.int32)
-                # case 2 - uint8
-                if signal_type == "int" and n_bits == 8:
-                    self.output_buffer = allocate(shape=(arr_size,), dtype=np.uint8)
-		# case 3 - uint64
-                if signal_type == "int" and n_bits == 64:
-                    self.output_buffer = allocate(shape=(arr_size,), dtype=np.uint64)
-                # case 4 - float32
-                if signal_type == "float" and n_bits == 32:
-                    self.output_buffer = allocate(shape=(arr_size,), dtype=np.float32)
-
-        {%- endif %}
+                    allocated_buffer = allocate(shape=(arr_size,), dtype=np.float32)
+                return allocated_buffer
 
     def process_input(self, signal_name, msg):
         # Receive the value from the msg and send it to the FPGA
@@ -230,15 +244,12 @@ class FpgaDriver():
             return val
 
     def setup_dma_buffers(self):
-	# Setup the input and output AXI_Stream buffers for DMA transfer
-	
-	{%- if has_axis_in %}
-        self.dma.sendchannel.transfer(self.input_buffer)
-        {%- endif %}
+        # Setup the input and output AXI_Stream buffers for DMA transfer
 
-        {%- if has_axis_out %}
-        self.dma.recvchannel.transfer(self.output_buffer)
-        {%- endif %}
+        if self.has_axis_in:
+            self.dma.sendchannel.transfer(self.input_buffer)
+        if self.has_axis_out:
+            self.dma.recvchannel.transfer(self.output_buffer)
 	
         return
 
@@ -246,14 +257,10 @@ class FpgaDriver():
         # Send the AP_START flag
         self.mmio.write(0x00, 1)
         # Wait for streams, if any
-        {%- if has_axis_in %}
-        if self.dma.sendchannel.running:
+        if self.has_axis_in and self.dma.sendchannel.running:
             self.dma.sendchannel.wait() 
-        {%- endif %}
-        {%- if has_axis_out %}
-        if self.dma.recvchannel.running:
+        if self.has_axis_out and self.dma.recvchannel.running:
             self.dma.recvchannel.wait() 
-        {%- endif %}
        
         # Wait for the computation to be finished (AP_DONE)
         self.wait_result()

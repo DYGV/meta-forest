@@ -1,8 +1,9 @@
 import subprocess
 import sys
 import os
+import json
 import getopt
-from jinja2 import Environment, FileSystemLoader, select_autoescape
+from jinja2 import Environment, FileSystemLoader
 
 # Helper functions
 
@@ -37,7 +38,7 @@ def process_msg_file(filename, io_map):
 
 def usage():
     # Prints the optional commands for the script
-    print("\n[Forest]: usage: python3 forest.py [-h] [-t] [-g -i ninputs -o noutputs]")
+    print("\n[Forest]: usage: python3 forest.py [-h] [-t] [-g [-i ninputs -o noutputs]]")
     print("\n-h or --help: Prints the usage statement for the script")
     print("\n-t or --test: Generates simple talker and listener nodes along with the FPGA ROS node")
     print("\n-g or --genconfig: Generates a template config file to be used by the script")
@@ -134,15 +135,40 @@ def check_out_map_validity(out_map):
         sys.exit(1)
 
 
+def check_dma_validity(io_maps):
+    # Check if user FPGA logic has one DMA circuit, if the logic has stream
+
+    err_found = False
+    err_message = ""
+    wrong_ip = ""
+    for ip_name, dma_name in io_maps["dma"].items():
+        io_map_num = io_maps["map_num"][ip_name]
+        in_map = io_maps["maps"][io_map_num]["input"]
+        out_map = io_maps["maps"][io_map_num]["output"]
+        has_axis = False
+        for signal_name in in_map.keys():
+            has_axis |= (in_map[signal_name]["protocol"] == "stream")
+        for signal_name in out_map.keys():
+            has_axis |= (out_map[signal_name]["protocol"] == "stream")
+        if has_axis and not dma_name:
+            err_found = True
+            err_message = "DMA IP is not set even though AXI-Stream is specified in " + ip_name
+        if not has_axis and dma_name:
+            err_found = True
+            err_message = "DMA IP is specified even though a non AXI-Stream protocol is set in "+ ip_name
+        if err_found:
+            print("\n[Forest]: Error! %s\n" % err_message)
+            sys.exit(1)
+
 # Rendering functions
 
-def render_config_file(env, n_config_inputs, n_config_outputs):
+def render_config_file(env, n_config_ips, n_config_inputs, n_config_outputs):
 
     # Render config.forest template when running in genconfig mode
     
     config_file = env.get_template("config.forest.jinja2")
     f = open("config.forest", "w")
-    f.write(config_file.render(n_in=n_config_inputs, n_out=n_config_outputs))
+    f.write(config_file.render(n_ips=n_config_ips, n_in=n_config_inputs, n_out=n_config_outputs))
     f.close()
 
     return
@@ -158,13 +184,13 @@ def render_int_package_xml(env, prj):
 
     return
 
-def render_int_cmakelists_txt(env, prj):
+def render_int_cmakelists_txt(env, prj, msg_files):
 
     # Render CMakeLists.txt for the interface package
 
     cmake_txt = env.get_template("CMakeLists-int.txt.jinja2")
     f = open("output/CMakeLists-int.txt", "w")
-    f.write(cmake_txt.render(prj_name=prj))
+    f.write(cmake_txt.render(prj_name=prj, msg_files=msg_files))
     f.close()
 
     return
@@ -191,55 +217,90 @@ def render_node_setup_py(env, prj, test_enabled):
 
     return
 
-def render_node_ros_fpga_lib_py(env, bit_file, ip_name, in_map, out_map, has_axis_in, has_axis_out):
-
+def render_node_ros_fpga_lib_py(env, prj, bit_file):
     # Render ros_fpga_lib.py for the node package
 
     ros_fpga_lib_py = env.get_template("ros_fpga_lib.py.jinja2")
     f = open("output/ros_fpga_lib-node.py", "w")
-    f.write(ros_fpga_lib_py.render(bit_file=bit_file, ip_name=ip_name, in_map=in_map, out_map=out_map, has_axis_in=has_axis_in, has_axis_out=has_axis_out))
+    f.write(ros_fpga_lib_py.render(prj_name=prj, bit_file=bit_file))
     f.close()
 
     return
 
-def render_node_fpga_node_py(env, prj, qos, in_signals, out_signals, has_axis_in, has_axis_out):
+def render_node_fpga_node_py(env, prj, qos, head_ip_name):
 
     # Render fpga_node.py for the node package
 
     fpga_node_py = env.get_template("fpga_node.py.jinja2")
     f = open("output/fpga_node-node.py", "w")
-    f.write(fpga_node_py.render(qos=qos, prj_name=prj, in_signals=in_signals, out_signals=out_signals, has_axis_in=has_axis_in, has_axis_out=has_axis_out))
+    f.write(fpga_node_py.render(qos=qos, prj_name=prj, ip_name=head_ip_name))
     f.close()
 
     return
 
-def render_test_talker(env, prj, qos, in_map):
+def render_node_fpga_launch(env, prj, ip_names):
+
+    # Render fpga_node_launch.py for the node package
+
+    launch_file_name = "fpga_node_launch.py"
+    fpga_node_launch_py = env.get_template(launch_file_name + ".jinja2")
+    f = open("output/" + launch_file_name, "w")
+    f.write(fpga_node_launch_py.render(prj_name=prj, ip_names=ip_names))
+    f.close()
+
+    return
+
+def render_test_talker(env, prj, qos, ip_name):
 
     # Render the message generation file for the node package
 
     talker_py = env.get_template("talker.py.jinja2")
     f = open("output/talker-node.py", "w")
-    f.write(talker_py.render(prj_name=prj, qos=qos, in_map=in_map))
+    f.write(talker_py.render(prj_name=prj, qos=qos, ip_name=ip_name))
     f.close()
 
     return
 
-def render_test_listener(env, prj, qos):
+def render_test_talker_launch(env, prj, ip_map_nums):
+
+    # Render talker_launch.py for the node package
+
+    launch_file_name = "talker_launch.py"
+    talker_launch_py = env.get_template(launch_file_name + ".jinja2")
+    f = open("output/" + launch_file_name, "w")
+    f.write(talker_launch_py.render(prj_name=prj, ip_map_nums=ip_map_nums))
+    f.close()
+
+    return
+
+def render_test_listener(env, prj, qos, ip_name):
 
     # Render the message reader file for the node package
 
     listener_py = env.get_template("listener.py.jinja2")
     f = open("output/listener-node.py", "w")
-    f.write(listener_py.render(prj_name=prj, qos=qos))
+    f.write(listener_py.render(prj_name=prj, qos=qos, ip_name=ip_name))
+    f.close()
+
+    return
+
+def render_test_listener_launch(env, prj, ip_map_nums):
+
+    # Render listener_launch.py for the node package
+
+    launch_file_name = "listener_launch.py"
+    listener_launch_py = env.get_template(launch_file_name + ".jinja2")
+    f = open("output/" + launch_file_name, "w")
+    f.write(listener_launch_py.render(prj_name=prj, ip_map_nums=ip_map_nums))
     f.close()
 
     return
 
 # Package generation functions
 
-def create_msg_pkg(dev_ws, prj, in_map, out_map):
+def create_msg_pkg(dev_ws, prj):
 
-    # Creates and builds the interface package
+    # Creates interface package
 
     print("\n[Forest]: Generating the ROS2 package for the FPGA node messages\n")
 
@@ -249,16 +310,23 @@ def create_msg_pkg(dev_ws, prj, in_map, out_map):
 
     run_sys_cmd(['ros2 pkg create --build-type ament_cmake ' + pkg_name], cwd=dev_ws+'src/')
 
+def create_msg_file(dev_ws, prj, map_num, in_map, out_map):
+    pkg_name = prj + '_interface'
     # Create the FPGA message files
-    
-    process_msg_file("FpgaIn", in_map)
-    process_msg_file("FpgaOut", out_map)
+    fpga_in_msg = "FpgaIn" + str(map_num)
+    fpga_out_msg = "FpgaOut" + str(map_num)
+    process_msg_file(fpga_in_msg, in_map)
+    process_msg_file(fpga_out_msg, out_map)
+
 
     run_sys_cmd(['mkdir -p msg'], cwd= dev_ws+ 'src/' + pkg_name)
     
-    run_sys_cmd(['cp output/FpgaIn-int.msg ' + dev_ws + 'src/' + pkg_name + '/msg/FpgaIn.msg'])
-    run_sys_cmd(['cp output/FpgaOut-int.msg ' + dev_ws + 'src/' + pkg_name + '/msg/FpgaOut.msg'])
+    run_sys_cmd([('cp output/%s-int.msg ' % fpga_in_msg) + dev_ws + 'src/' + pkg_name + '/msg/%s.msg' % fpga_in_msg])
+    run_sys_cmd([('cp output/%s-int.msg ' % fpga_out_msg) + dev_ws + 'src/' + pkg_name + '/msg/%s.msg'% fpga_out_msg])
 
+
+def build_msg_pkg(dev_ws, prj):
+    pkg_name = prj + '_interface'
     # Copy modified interface CMakeLists.txt
 
     run_sys_cmd(['cp output/CMakeLists-int.txt ' + dev_ws + 'src/' + pkg_name + '/CMakeLists.txt'])
@@ -275,7 +343,7 @@ def create_msg_pkg(dev_ws, prj, in_map, out_map):
 
     return
 
-def create_fpga_node_pkg(dev_ws, prj, test_enabled):
+def create_fpga_node_pkg(dev_ws, prj, test_enabled, io_maps):
 
     # Creates and builds the node package
 
@@ -303,11 +371,23 @@ def create_fpga_node_pkg(dev_ws, prj, test_enabled):
 
     run_sys_cmd(['cp output/ros_fpga_lib-node.py ' + dev_ws + 'src/' + pkg_name + '/' + pkg_name + '/ros_fpga_lib.py'])
 
+    # Copy modified node fpga_node_launch .py
+
+    run_sys_cmd(['mkdir -p launch'], cwd=dev_ws + 'src/' + pkg_name)
+    launch_file_name = "fpga_node_launch.py"
+    run_sys_cmd([('cp output/%s ' % launch_file_name) + dev_ws + 'src/' + pkg_name + '/launch/'+ launch_file_name])
+
     # If running in test generation mode, copy the test nodes as well
     
     if test_enabled:
         run_sys_cmd(['cp output/talker-node.py ' + dev_ws + 'src/' + pkg_name + '/' + pkg_name + '/talker.py'])
         run_sys_cmd(['cp output/listener-node.py ' + dev_ws + 'src/' + pkg_name + '/' + pkg_name + '/listener.py'])
+        run_sys_cmd(['cp output/talker_launch.py ' + dev_ws + 'src/' + pkg_name + '/launch' + '/talker_launch.py'])
+        run_sys_cmd(['cp output/listener_launch.py ' + dev_ws + 'src/' + pkg_name + '/launch' + '/listener_launch.py'])
+
+    io_maps_json = open(dev_ws + 'src/' + pkg_name + '/' + pkg_name + "/io_maps.json", "w")
+    io_maps_json.write(json.dumps(io_maps))
+    io_maps_json.close()
 
     # Build the FPGA node package
     
@@ -330,18 +410,18 @@ def main():
 
     gen_config_file = False
 
-    n_config_inputs = 0
+    n_config_inputs = []
 
-    n_config_outputs = 0
+    n_config_outputs = []
 
     # Parse command line arguments
 
     arg_list = sys.argv[1:] 
     # Options 
-    short_options = "htgi:o:" 
-    long_options = ["help", "test", "genconfig", "ninputs=", "noutputs="] 
+    short_options = "htgi:o:"
+    long_options = ["help", "test", "genconfig", "ninputs=", "noutputs="]
     try: 
-        args, values = getopt.getopt(arg_list, short_options, long_options)    
+        args, _ = getopt.getopt(arg_list, short_options, long_options)
         # checking each argument 
         for curr_arg, curr_val in args:
             if curr_arg in ("-h", "--help"): 
@@ -355,14 +435,16 @@ def main():
                 print("\n[Forest]: Config file generation mode\n")
                 gen_config_file = True
             if curr_arg in ("-i", "--ninputs"):
-                if gen_config_file == True:
-                    n_config_inputs = int(curr_val)
+                if gen_config_file:
+                    for ninputs in curr_val.split(","):
+                        n_config_inputs.append(int(ninputs))
                 else:
                     usage()
                     sys.exit(1)
             if curr_arg in ("-o", "--noutputs"):
-                if gen_config_file == True:
-                    n_config_outputs = int(curr_val)
+                if gen_config_file:
+                    for noutputs in curr_val.split(","):
+                        n_config_outputs.append(int(noutputs))
                 else:
                     usage()
                     sys.exit(1)
@@ -372,11 +454,16 @@ def main():
         usage()
         sys.exit(1)
 
-    if gen_config_file == True:
-        if n_config_inputs == 0 or n_config_outputs == 0:
+    if gen_config_file:
+        if not n_config_inputs or not n_config_outputs \
+                or any([n_config_input == 0 for n_config_input in n_config_inputs]) \
+                or any(n_config_output == 0 for n_config_output in n_config_outputs):
             print("\n[Forest]: Error! Need the number of input and output signals\n")
             usage()
+        elif len(n_config_inputs) != len(n_config_outputs):
+            print("\n[Forest]: Error! Need to specify the same number of input and output signals\n")
         else:
+            n_config_ips = len(n_config_inputs)
             gen_new = True
             # Check if config.forest file already exists
             if os.path.isfile("config.forest"):
@@ -387,7 +474,7 @@ def main():
                     gen_new = False
             if gen_new:
                 # Render config file template
-                render_config_file(env, n_config_inputs, n_config_outputs)
+                render_config_file(env, n_config_ips, n_config_inputs, n_config_outputs)
         sys.exit()
 
     # Parse config file
@@ -395,11 +482,11 @@ def main():
     prj = ""
     bit_file = ""
     ip_name = ""
+    ip_names = []
     dev_ws = ""
-    in_map = {}
-    out_map = {}
-    has_axis_in = False
-    has_axis_out = False
+    io_maps = {"map_num":{}, "maps":{}, "dma":{}}
+    map_num = 0
+
 
     reading_input = False
     reading_output = False
@@ -418,155 +505,172 @@ def main():
             value = value.strip()
 
             # Setup Information
-            if (key == "Forest project name"):
+            if key == "Forest project name":
                 prj = value
-            elif (key == "Absolute ROS2 dev_ws path"):
+            elif key == "Absolute ROS2 dev_ws path":
                 dev_ws = value
-            elif (key == "Absolute FPGA .bit file path"):
+            elif key == "Absolute FPGA .bit file path":
                 bit_file = value
-            elif (key == "User IP name"):
+            elif key == "User IP name":
+                map_num += 1
+                for ip_name in value.split(","):
+                    io_maps["map_num"].update({ip_name.strip():map_num})
+                    io_maps["dma"][ip_name.strip()] = ""
+                    ip_names.append(ip_name.strip())
+
+                io_maps["maps"].update({map_num:{"input":{}, "output":{}}})
                 ip_name = value
+            elif key == "DMA IP name":
+                for dma_ip_name in value.split(","):
+                    if len(ip_names) > 0:
+                        io_maps["dma"][ip_names.pop(0)] = dma_ip_name.strip()
+                ip_names.clear()
 
             # Inputs
-            elif (key == "Input name"):
-                in_map[value] = {}
+            elif key == "Input name":
+                io_maps["maps"][map_num]["input"].update({value: {}})
                 reading_input = True
                 in_name = value
-            elif (key == "Protocol" and reading_input):
-                in_map[in_name]["protocol"] = value.lower()
-                if "stream" in value.lower():
-                    has_axis_in = True
-            elif (key == "Type" and reading_input):
+            elif key == "Protocol" and reading_input:
+                io_maps["maps"][map_num]["input"][in_name]["protocol"] = value.lower()
+            elif key == "Type" and reading_input:
                 if value == "uint8":
-                    in_map[in_name]["type"] = "int"
-                    in_map[in_name]["n_bits"] = 8
-                    in_map[in_name]["signed"] = False
-                    in_map[in_name]["arr"] = False
-                    in_map[in_name]["n_elem"] = 1
+                    io_maps["maps"][map_num]["input"][in_name]["type"] = "int"
+                    io_maps["maps"][map_num]["input"][in_name]["n_bits"] = 8
+                    io_maps["maps"][map_num]["input"][in_name]["signed"] = False
+                    io_maps["maps"][map_num]["input"][in_name]["arr"] = False
+                    io_maps["maps"][map_num]["input"][in_name]["n_elem"] = 1
                 elif value == "int32":
-                    in_map[in_name]["type"] = "int"
-                    in_map[in_name]["n_bits"] = 32
-                    in_map[in_name]["signed"] = True
-                    in_map[in_name]["arr"] = False
-                    in_map[in_name]["n_elem"] = 1
+                    io_maps["maps"][map_num]["input"][in_name]["type"] = "int"
+                    io_maps["maps"][map_num]["input"][in_name]["n_bits"] = 32
+                    io_maps["maps"][map_num]["input"][in_name]["signed"] = True
+                    io_maps["maps"][map_num]["input"][in_name]["arr"] = False
+                    io_maps["maps"][map_num]["input"][in_name]["n_elem"] = 1
                 elif value == "float32":
-                    in_map[in_name]["type"] = "float"
-                    in_map[in_name]["n_bits"] = 32
-                    in_map[in_name]["signed"] = True
-                    in_map[in_name]["arr"] = False
-                    in_map[in_name]["n_elem"] = 1
+                    io_maps["maps"][map_num]["input"][in_name]["type"] = "float"
+                    io_maps["maps"][map_num]["input"][in_name]["n_bits"] = 32
+                    io_maps["maps"][map_num]["input"][in_name]["signed"] = True
+                    io_maps["maps"][map_num]["input"][in_name]["arr"] = False
+                    io_maps["maps"][map_num]["input"][in_name]["n_elem"] = 1
                 elif value == "float64":
-                    in_map[in_name]["type"] = "float"
-                    in_map[in_name]["n_bits"] = 64
-                    in_map[in_name]["signed"] = True
-                    in_map[in_name]["arr"] = False
-                    in_map[in_name]["n_elem"] = 1
+                    io_maps["maps"][map_num]["input"][in_name]["type"] = "float"
+                    io_maps["maps"][map_num]["input"][in_name]["n_bits"] = 64
+                    io_maps["maps"][map_num]["input"][in_name]["signed"] = True
+                    io_maps["maps"][map_num]["input"][in_name]["arr"] = False
+                    io_maps["maps"][map_num]["input"][in_name]["n_elem"] = 1
                 elif "uint8" in value and "[" in value:
-                    in_map[in_name]["type"] = "int"
-                    in_map[in_name]["n_bits"] = 8
-                    in_map[in_name]["signed"] = False
-                    in_map[in_name]["arr"] = True
+                    io_maps["maps"][map_num]["input"][in_name]["type"] = "int"
+                    io_maps["maps"][map_num]["input"][in_name]["n_bits"] = 8
+                    io_maps["maps"][map_num]["input"][in_name]["signed"] = False
+                    io_maps["maps"][map_num]["input"][in_name]["arr"] = True
                     n_elem = int(value.replace('uint8', '').replace('[', '').replace(']', ''))
-                    in_map[in_name]["n_elem"] = n_elem
+                    io_maps["maps"][map_num]["input"][in_name]["n_elem"] = n_elem
                 elif "uint64" in value and "[" in value:
-                    in_map[in_name]["type"] = "int"
-                    in_map[in_name]["n_bits"] = 64
-                    in_map[in_name]["signed"] = False
-                    in_map[in_name]["arr"] = True
+                    io_maps["maps"][map_num]["input"][in_name]["type"] = "int"
+                    io_maps["maps"][map_num]["input"][in_name]["n_bits"] = 64
+                    io_maps["maps"][map_num]["input"][in_name]["signed"] = False
+                    io_maps["maps"][map_num]["input"][in_name]["arr"] = True
                     n_elem = int(value.replace('uint64', '').replace('[', '').replace(']', ''))
-                    in_map[in_name]["n_elem"] = n_elem
+                    io_maps["maps"][map_num]["input"][in_name]["n_elem"] = n_elem
                 elif "int32" in value and "[" in value:
-                    in_map[in_name]["type"] = "int"
-                    in_map[in_name]["n_bits"] = 32
-                    in_map[in_name]["signed"] = True
-                    in_map[in_name]["arr"] = True
+                    io_maps["maps"][map_num]["input"][in_name]["type"] = "int"
+                    io_maps["maps"][map_num]["input"][in_name]["n_bits"] = 32
+                    io_maps["maps"][map_num]["input"][in_name]["signed"] = True
+                    io_maps["maps"][map_num]["input"][in_name]["arr"] = True
                     n_elem = int(value.replace('int32', '').replace('[', '').replace(']', ''))
-                    in_map[in_name]["n_elem"] = n_elem
+                    io_maps["maps"][map_num]["input"][in_name]["n_elem"] = n_elem
                 elif "float32" in value and "[" in value:
-                    in_map[in_name]["type"] = "float"
-                    in_map[in_name]["n_bits"] = 32
-                    in_map[in_name]["signed"] = True
-                    in_map[in_name]["arr"] = True
+                    io_maps["maps"][map_num]["input"][in_name]["type"] = "float"
+                    io_maps["maps"][map_num]["input"][in_name]["n_bits"] = 32
+                    io_maps["maps"][map_num]["input"][in_name]["signed"] = True
+                    io_maps["maps"][map_num]["input"][in_name]["arr"] = True
                     n_elem = int(value.replace('float32', '').replace('[', '').replace(']', ''))
-                    in_map[in_name]["n_elem"] = n_elem
+                    io_maps["maps"][map_num]["input"][in_name]["n_elem"] = n_elem
                 elif "float64" in value and "[" in value:
-                    in_map[in_name]["type"] = "float"
-                    in_map[in_name]["n_bits"] = 64
-                    in_map[in_name]["signed"] = True
-                    in_map[in_name]["arr"] = True
+                    io_maps["maps"][map_num]["input"][in_name]["type"] = "float"
+                    io_maps["maps"][map_num]["input"][in_name]["n_bits"] = 64
+                    io_maps["maps"][map_num]["input"][in_name]["signed"] = True
+                    io_maps["maps"][map_num]["input"][in_name]["arr"] = True
                     n_elem = int(value.replace('float64', '').replace('[', '').replace(']', ''))
-                    in_map[in_name]["n_elem"] = n_elem
+                    io_maps["maps"][map_num]["input"][in_name]["n_elem"] = n_elem
                 else:
-                    print("\n[Forest]: Error! Config file error. Input type not recognized at signal {}\n".format(in_name))
+                    print("\n[Forest]: Error! Config file error. Input type not recognized at signal {} in {}\n".format(in_name, ip_name))
                     sys.exit(1)
-            elif ("Address" in key and reading_input):
-                if in_map[in_name]["protocol"] == "lite":
-                    in_map[in_name]["addr"] = int(value)
+            elif "Address" in key and reading_input:
+                if io_maps["maps"][map_num]["input"][in_name]["protocol"] == "lite":
+                    if value.isnumeric():
+                        io_maps["maps"][map_num]["input"][in_name]["addr"] = int(value)
+                    else:
+                        print("\n[Forest]: Error! Config file error. Address not recognized at signal {} in {}\n".format(in_name, ip_name))
+                        sys.exit(1)
                 else:
-                    in_map[in_name]["addr"] = None
+                    io_maps["maps"][map_num]["input"][in_name]["addr"] = None
 
             # Outputs
-            elif (key == "Output name"):
-                out_map[value] = {}
+            elif key == "Output name":
+                io_maps["maps"][map_num]["output"].update({value: {}})
                 reading_input = False
                 reading_output = True
                 out_name = value
-            elif (key == "Protocol" and reading_output):
-                out_map[out_name]["protocol"] = value.lower()
-                if "stream" in value.lower():
-                    has_axis_out = True
-            elif (key == "Type" and reading_output):
+            elif key == "Protocol" and reading_output:
+                io_maps["maps"][map_num]["output"][out_name]["protocol"] = value.lower()
+            elif key == "Type" and reading_output:
                 if "[" not in value or "]" not in value:
-                    print("\n[Forest]: Error! Config file error. All output signals must be fixed size arrays at signal {}\n".format(out_name))
+                    print("\n[Forest]: Error! Config file error. All output signals must be fixed size arrays at signal {} in {}\n".format(out_name, ip_name))
                     sys.exit(1)
                 if "uint8" in value and "[" in value:
-                    out_map[out_name]["type"] = "int"
-                    out_map[out_name]["n_bits"] = 8
-                    out_map[out_name]["signed"] = False
-                    out_map[out_name]["arr"] = True
+                    io_maps["maps"][map_num]["output"][out_name]["type"] = "int"
+                    io_maps["maps"][map_num]["output"][out_name]["n_bits"] = 8
+                    io_maps["maps"][map_num]["output"][out_name]["signed"] = False
+                    io_maps["maps"][map_num]["output"][out_name]["arr"] = True
                     n_elem = int(value.replace('uint8', '').replace('[', '').replace(']', ''))
-                    out_map[out_name]["n_elem"] = n_elem
+                    io_maps["maps"][map_num]["output"][out_name]["n_elem"] = n_elem
                 elif "uint64" in value and "[" in value:
-                    out_map[out_name]["type"] = "int"
-                    out_map[out_name]["n_bits"] = 64
-                    out_map[out_name]["signed"] = False
-                    out_map[out_name]["arr"] = True
+                    io_maps["maps"][map_num]["output"][out_name]["type"] = "int"
+                    io_maps["maps"][map_num]["output"][out_name]["n_bits"] = 64
+                    io_maps["maps"][map_num]["output"][out_name]["signed"] = False
+                    io_maps["maps"][map_num]["output"][out_name]["arr"] = True
                     n_elem = int(value.replace('uint64', '').replace('[', '').replace(']', ''))
-                    out_map[out_name]["n_elem"] = n_elem
+                    io_maps["maps"][map_num]["output"][out_name]["n_elem"] = n_elem
                 elif "int32" in value and "[" in value:
-                    out_map[out_name]["type"] = "int"
-                    out_map[out_name]["n_bits"] = 32
-                    out_map[out_name]["signed"] = True
-                    out_map[out_name]["arr"] = True
+                    io_maps["maps"][map_num]["output"][out_name]["type"] = "int"
+                    io_maps["maps"][map_num]["output"][out_name]["n_bits"] = 32
+                    io_maps["maps"][map_num]["output"][out_name]["signed"] = True
+                    io_maps["maps"][map_num]["output"][out_name]["arr"] = True
                     n_elem = int(value.replace('int32', '').replace('[', '').replace(']', ''))
-                    out_map[out_name]["n_elem"] = n_elem
+                    io_maps["maps"][map_num]["output"][out_name]["n_elem"] = n_elem
                 elif "float32" in value and "[" in value:
-                    out_map[out_name]["type"] = "float"
-                    out_map[out_name]["n_bits"] = 32
-                    out_map[out_name]["signed"] = True
-                    out_map[out_name]["arr"] = True
+                    io_maps["maps"][map_num]["output"][out_name]["type"] = "float"
+                    io_maps["maps"][map_num]["output"][out_name]["n_bits"] = 32
+                    io_maps["maps"][map_num]["output"][out_name]["signed"] = True
+                    io_maps["maps"][map_num]["output"][out_name]["arr"] = True
                     n_elem = int(value.replace('float32', '').replace('[', '').replace(']', ''))
-                    out_map[out_name]["n_elem"] = n_elem
+                    io_maps["maps"][map_num]["output"][out_name]["n_elem"] = n_elem
                 elif "float64" in value and "[" in value:
-                    out_map[out_name]["type"] = "float"
-                    out_map[out_name]["n_bits"] = 64
-                    out_map[out_name]["signed"] = True
-                    out_map[out_name]["arr"] = True
+                    io_maps["maps"][map_num]["output"][out_name]["type"] = "float"
+                    io_maps["maps"][map_num]["output"][out_name]["n_bits"] = 64
+                    io_maps["maps"][map_num]["output"][out_name]["signed"] = True
+                    io_maps["maps"][map_num]["output"][out_name]["arr"] = True
                     n_elem = int(value.replace('float64', '').replace('[', '').replace(']', ''))
-                    out_map[out_name]["n_elem"] = n_elem
+                    io_maps["maps"][map_num]["output"][out_name]["n_elem"] = n_elem
                 else:
-                    print("\n[Forest]: Error! Config file error. Output type not recognized at signal {}\n".format(out_name))
+                    print("\n[Forest]: Error! Config file error. Output type not recognized at signal {} in {}\n".format(out_name, ip_name))
                     sys.exit(1)
-            elif ("Address" in key and reading_output):
-                if out_map[out_name]["protocol"] == "lite":
-                    out_map[out_name]["addr"] = int(value)
+            elif "Address" in key and reading_output:
+                if io_maps["maps"][map_num]["output"][out_name]["protocol"] == "lite":
+                    if value.isnumeric():
+                        io_maps["maps"][map_num]["output"][out_name]["addr"] = int(value)
+                    else:
+                        print("\n[Forest]: Error! Config file error. Address not recognized at signal {} in {}\n".format(in_name, ip_name))
+                        sys.exit(1)
                 else:
-                    out_map[out_name]["addr"] = None
+                    io_maps["maps"][map_num]["output"][out_name]["addr"] = None
     f.close()
 
-    check_in_map_validity(in_map)
-
-    check_out_map_validity(out_map)
+    for io_map in io_maps["maps"].values():
+        check_in_map_validity(io_map["input"])
+        check_out_map_validity(io_map["output"])
+    check_dma_validity(io_maps)
 
     print("\n[Forest]: Starting the tool...\n")
  
@@ -574,14 +678,11 @@ def main():
         os.makedirs('output')
 
     prj = "forest_" + prj
- 
-    in_signals = in_map.keys()
-
-    out_signals = out_map.keys()
+    head_ip_name = next(iter(io_maps["map_num"]))
 
     qos = 10
 
-    if (not dev_ws.endswith('/')):
+    if not dev_ws.endswith('/'):
         dev_ws += '/'
 
     # Rendering of template files
@@ -594,7 +695,9 @@ def main():
 
     # Render interface CMakeLists.txt
 
-    render_int_cmakelists_txt(env, prj)
+    fpga_in_msg = ["msg/"+"FpgaIn"+str(map_num)+".msg" for map_num in io_maps["maps"].keys()]
+    fpga_out_msg = ["msg/"+"FpgaOut"+str(map_num)+".msg" for map_num in io_maps["maps"].keys()]
+    render_int_cmakelists_txt(env, prj, fpga_in_msg+fpga_out_msg)
 
     # Render node package.xml
 
@@ -606,25 +709,32 @@ def main():
 
     # Render node ros_fpga_lib.py
 
-    render_node_ros_fpga_lib_py(env, bit_file, ip_name, in_map, out_map, has_axis_in, has_axis_out)
+    render_node_ros_fpga_lib_py(env, prj, bit_file)
 
     # Render node fpga_node.py
 
-    render_node_fpga_node_py(env, prj, qos, in_signals, out_signals, has_axis_in, has_axis_out)
+    render_node_fpga_node_py(env, prj, qos, head_ip_name)
+
+    # Render node fpga_node_launch.py
+    render_node_fpga_launch(env, prj, list(io_maps["map_num"].keys()))
 
     # Render talker and listener if the test option is enabled
 
     if test_enabled:
-        render_test_talker(env, prj, qos, in_map)
-        render_test_listener(env, prj, qos)
+        render_test_talker(env, prj, qos, head_ip_name)
+        render_test_listener(env, prj, qos, head_ip_name)
+        render_test_talker_launch(env, prj, io_maps["map_num"])
+        render_test_listener_launch(env, prj, io_maps["map_num"])
 
     # Generate message package
-    
-    create_msg_pkg(dev_ws, prj, in_map, out_map)
+    create_msg_pkg(dev_ws, prj)
+    for map_num, io_map in io_maps["maps"].items():
+        create_msg_file(dev_ws, prj, map_num, io_map["input"], io_map["output"])
+    build_msg_pkg(dev_ws, prj)
 
     # Generate node package
 
-    create_fpga_node_pkg(dev_ws, prj, test_enabled)
+    create_fpga_node_pkg(dev_ws, prj, test_enabled, io_maps)
 
     return 0
 
