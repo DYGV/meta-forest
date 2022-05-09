@@ -135,31 +135,6 @@ def check_out_map_validity(out_map):
         sys.exit(1)
 
 
-def check_dma_validity(io_maps):
-    # Check if user FPGA logic has one DMA circuit, if the logic has stream
-
-    err_found = False
-    err_message = ""
-    wrong_ip = ""
-    for ip_name, dma_name in io_maps["dma"].items():
-        io_map_num = io_maps["map_num"][ip_name]
-        in_map = io_maps["maps"][io_map_num]["input"]
-        out_map = io_maps["maps"][io_map_num]["output"]
-        has_axis = False
-        for signal_name in in_map.keys():
-            has_axis |= (in_map[signal_name]["protocol"] == "stream")
-        for signal_name in out_map.keys():
-            has_axis |= (out_map[signal_name]["protocol"] == "stream")
-        if has_axis and not dma_name:
-            err_found = True
-            err_message = "DMA IP is not set even though AXI-Stream is specified in " + ip_name
-        if not has_axis and dma_name:
-            err_found = True
-            err_message = "DMA IP is specified even though a non AXI-Stream protocol is set in "+ ip_name
-        if err_found:
-            print("\n[Forest]: Error! %s\n" % err_message)
-            sys.exit(1)
-
 # Rendering functions
 
 def render_config_file(env, n_config_ips, n_config_inputs, n_config_outputs):
@@ -396,6 +371,14 @@ def create_fpga_node_pkg(dev_ws, prj, test_enabled, io_maps):
 
     return
 
+
+def create_vivado_bd(prj_name, board_name, ips_path, ips):
+    args = "-project_name {} -board_name {} -ips_directory {}".format(prj_name, board_name, ips_path)
+    for name, count in ips.items():
+        args += " -ip {} {}".format(name, count)
+    run_sys_cmd(["vivado -nolog -nojournal -mode batch -source create_bd.tcl -tclargs {}".format(args)])
+
+
 # Main
 
 def main():
@@ -410,6 +393,8 @@ def main():
 
     gen_config_file = False
 
+    gen_block_design = False
+
     n_config_inputs = []
 
     n_config_outputs = []
@@ -418,8 +403,8 @@ def main():
 
     arg_list = sys.argv[1:] 
     # Options 
-    short_options = "htgi:o:"
-    long_options = ["help", "test", "genconfig", "ninputs=", "noutputs="]
+    short_options = "htgbi:o:"
+    long_options = ["help", "test", "genconfig", "genbd", "ninputs=", "noutputs="]
     try: 
         args, _ = getopt.getopt(arg_list, short_options, long_options)
         # checking each argument 
@@ -434,6 +419,9 @@ def main():
             if curr_arg in ("-g", "--genconfig"): 
                 print("\n[Forest]: Config file generation mode\n")
                 gen_config_file = True
+            if curr_arg in ("-b", "--genbd"):
+                print("\n[Forest]: vivado block design generation mode\n")
+                gen_block_design = True
             if curr_arg in ("-i", "--ninputs"):
                 if gen_config_file:
                     for ninputs in curr_val.split(","):
@@ -477,14 +465,52 @@ def main():
                 render_config_file(env, n_config_ips, n_config_inputs, n_config_outputs)
         sys.exit()
 
+    if gen_block_design:
+        try:
+            f = open("config.forest", "r")
+        except:
+            print("\n[Forest]: Config file could not be opened! I need a config.forest file in the same directory as forest.py\n")
+            sys.exit(1)
+        prj = ""
+        board_name = ""
+        ip_path = ""
+        ips = {}
+        config_data = f.read().splitlines()
+        for line in config_data:
+            # Parse input and assign values to variables
+            if not (line.startswith("*") or line.startswith("/") or not line):
+                index_delim = line.find(":")
+                key, value = line[0:index_delim], line[index_delim+1:]
+                key = key.strip()
+                value = value.strip()
+
+                # Setup Information
+                if key == "Forest project name":
+                    prj = "forest_vivado_" + value
+                    print("\n[Forest]: vivado project will be generated in {}/{} \n".format(os.getcwd(), prj))
+                elif key == "FPGA board name":
+                    board_name = value
+                elif key == "Absolute IP path":
+                    ip_path = value
+                elif key == "User IP name":
+                    reading_ip_name = value
+                    if not  reading_ip_name in ips:
+                        ips[reading_ip_name] = 0
+                elif key == "User IP count":
+                    ips[reading_ip_name] += int(value)
+
+        create_vivado_bd(prj, board_name, ip_path, ips)
+        sys.exit()
+
     # Parse config file
 
     prj = ""
     bit_file = ""
     ip_name = ""
+    ip_count = 1
     ip_names = []
     dev_ws = ""
-    io_maps = {"map_num":{}, "maps":{}, "dma":{}}
+    io_maps = {"map_num":{}, "maps":{}}
     map_num = 0
 
 
@@ -500,7 +526,8 @@ def main():
     for line in config_data:
         # Parse input and assign values to variables
         if not (line.startswith("*") or line.startswith("/") or not line):
-            key, value = line.split(":")
+            index_delim = line.find(":")
+            key, value = line[0:index_delim], line[index_delim+1:]
             key = key.strip()
             value = value.strip()
 
@@ -513,18 +540,15 @@ def main():
                 bit_file = value
             elif key == "User IP name":
                 map_num += 1
-                for ip_name in value.split(","):
-                    io_maps["map_num"].update({ip_name.strip():map_num})
-                    io_maps["dma"][ip_name.strip()] = ""
-                    ip_names.append(ip_name.strip())
-
                 io_maps["maps"].update({map_num:{"input":{}, "output":{}}})
                 ip_name = value
-            elif key == "DMA IP name":
-                for dma_ip_name in value.split(","):
-                    if len(ip_names) > 0:
-                        io_maps["dma"][ip_names.pop(0)] = dma_ip_name.strip()
-                ip_names.clear()
+
+            elif key == "User IP count":
+                ip_count = int(value)
+                for i in range(ip_count):
+                    ip_name_ = ip_name.strip() + "_%d" % i
+                    io_maps["map_num"].update({ip_name_:map_num})
+                    ip_names.append(ip_name_)
 
             # Inputs
             elif key == "Input name":
@@ -670,7 +694,6 @@ def main():
     for io_map in io_maps["maps"].values():
         check_in_map_validity(io_map["input"])
         check_out_map_validity(io_map["output"])
-    check_dma_validity(io_maps)
 
     print("\n[Forest]: Starting the tool...\n")
  

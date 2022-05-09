@@ -33,9 +33,20 @@ class FpgaDriver():
         # in IEEE-754 representation
         self.in_map = io_maps["maps"][self.map_num_str]["input"]
         self.out_map = io_maps["maps"][self.map_num_str]["output"]
-        self.dma_name = io_maps["dma"][user_ip]
         self.has_axis_in = self.has_axis(self.in_map)
         self.has_axis_out = self.has_axis(self.out_map)
+        if self.has_axis_in or self.has_axis_out:
+            import fnmatch
+            import re
+            from pynq.pl_server import hwh_parser
+            hwh_file = hwh_parser.get_hwh_name(self.bit_file)
+            hwh = hwh_parser.HWH(hwh_file)
+            pins = fnmatch.filter(hwh.pins.keys(), "{}/*TDATA".format(self.user_ip))
+            for pin in pins:
+                dma_match = re.search(r'axi_dma_\d+', hwh.pins[pin])
+                if dma_match is not None:
+                    self.dma_name = dma_match.group()
+                    break
 
     @property
     def user_ip(self):
@@ -68,7 +79,7 @@ class FpgaDriver():
         print("User IP phys_addr = 0x{:X}".format(phys_addr))
         print("User IP addr_range = {}".format(addr_range))
         self.mmio = MMIO(phys_addr, addr_range)
-        if self.dma_name:
+        if self.has_axis_in or self.has_axis_out:
             self.dma = getattr(self.ovl, self.dma_name)
         if self.has_axis_in:
             self.input_buffer = self.allocate_dma_buffer(self.in_map)
