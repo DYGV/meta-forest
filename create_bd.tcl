@@ -18,13 +18,13 @@ proc setup_vivado_project {board_name ip_directory bd_name} {
     set_property board_part $board_part [current_project]
     set_property target_language "Verilog" [current_project]
 
-    # IPをプロジェクトのIP Catalogに追加する
-    lappend ip_list [file join $ip_directory]
-    if {[info exists ip_list] && [llength $ip_list] > 0} {
-        set_property ip_repo_paths $ip_list [current_fileset]
-    }
-
+    # IPリポジトリをプロジェクトのIP Catalogに追加する
+    set_property ip_repo_paths $ip_directory [current_fileset]
     update_ip_catalog
+
+    if { [string equal [get_filesets -quiet sources_1] ""] } {
+        create_fileset -srcset sources_1
+    }
     create_bd_design -verbose $bd_name
     update_compile_order -fileset sources_1
 }
@@ -32,45 +32,19 @@ proc setup_vivado_project {board_name ip_directory bd_name} {
 proc get_intf {ip_name protocol {master_slave "*"}} {
     # 指定されたIP名とプロトコルからインターフェースオブジェクトを返す
 
-    lappend pins [get_bd_intf_pins -of [get_bd_cells $ip_name]]
-    foreach pin $pins {
-        set intf_vlnv [get_property VLNV $pin]
-        set mode [get_property MODE $pin]
-        # IPが$protocolを使った入出力を含んでいるかを調べる
-        if { [string match "xilinx.com:interface:$protocol*" $intf_vlnv] } {
-            if { [string equal "*" $master_slave] } {
-                lappend intf_pin_list $pin
-            } elseif { [string equal "Master" $master_slave] } {
-                if { [string equal "Master" $mode]} {
-                    lappend intf_pin_list $pin
-                }
-            } elseif { [string equal "Slave" $master_slave] } {
-                if { [string equal "Slave" $mode]} {
-                    lappend intf_pin_list $pin
-                }
-            }
-        }
-    }
-    if { [info exists intf_pin_list] } {
-        return $intf_pin_list
-    }
+    set filter "MODE =~ $master_slave && VLNV =~ xilinx.com:interface:$protocol*"
+    lappend pins [get_bd_intf_pins -quiet \
+                    -filter $filter \
+                    -of [get_bd_cells $ip_name]]
+    return $pins
 }
 
 proc configure_axi_dma_ip { dma_ip user_ip_axis_intr_pin_list } {
-    # DMA IPの設定
-    # ユーザIPに応じてmm2s、s2mmをオフにする
+    # DMA回路の設定
+    # ユーザIPに応じてDMA回路のmm2s、s2mmをオフにする
 
-    set mm2s 0
-    set s2mm 0
-    foreach pin $user_ip_axis_intr_pin_list {
-        # MasterかSlaveか
-        set mode [get_property MODE $pin]
-        set mm2s [expr {$mm2s || [string equal $mode "Slave" ]}]
-        set s2mm [expr {$s2mm || [string equal $mode "Master" ]}]
-    }
-    if { ![expr {$mm2s || $s2mm}] } {
-        return
-    }
+    set mm2s [expr {[llength [filter $user_ip_axis_intr_pin_list {MODE == "Slave"}]] > 0}]
+    set s2mm [expr {[llength [filter $user_ip_axis_intr_pin_list {MODE == "Master"}]] > 0}]
     set config [ list \
                 CONFIG.c_include_mm2s $mm2s \
                 CONFIG.c_include_s2mm $s2mm \
@@ -95,7 +69,7 @@ proc connect_master_to_slave_axis { dma_ip user_ip_axis_intr_pin_list } {
         foreach dma_pin $dma_ip_intr_pin_list {
             set dma_pin_mode [get_property MODE $dma_pin]
             if { ![string equal $user_pin_mode $dma_pin_mode] } {
-                connect_bd_intf_net [get_bd_intf_pins $dma_pin] [get_bd_intf_pins $user_pin]
+                connect_bd_intf_net $dma_pin $user_pin
             }
         }
     }
@@ -140,51 +114,68 @@ proc add_vivado_bd_ip { ip_name number {library "hls"} {version 1.0} } {
     }
 }
 
-proc open_ps_hp { {port_num 0} } {
+proc open_ps_hp { } {
     # HPポートをオンにする
 
     global PS
-    # すでに開いているなら処理を終える
-    if { [get_property CONFIG.PCW_USE_S_AXI_HP$port_num $PS] } {
-        return
+
+    set board_architecture [get_property architecture [get_parts [get_property PART_NAME [current_board_part]]]]
+
+    # HPのプロパティ名
+    if { [string equal "zynq" $board_architecture] } {
+        set HP "CONFIG.PCW_USE_S_AXI_HP0"
+    } elseif { [string equal "zynquplus" $board_architecture] } {
+        set HP "CONFIG.PSU__USE__S_AXI_GP2"
     }
-    # プロセッサのHPポートをオンにする
-    set_property CONFIG.PCW_USE_S_AXI_HP$port_num 1 $PS
+
+    if { [expr {![info exists HP] || [get_property $HP $PS] }] } {
+        return
+    } else {
+        # プロセッサのHPポートをオンにする
+        set_property $HP 1 $PS
+    }
 }
 
 proc get_ps_port {} {
+    # PSのHP・GPポートのピンを取得する
+
     global PS
-    lappend pins [get_bd_intf_pins -of $PS]
-    set PS_PORT [dict create]
-    foreach pin $pins {
-        set intf_vlnv [get_property VLNV $pin]
-        set mode [get_property MODE $pin]
-        if { [string match "xilinx.com:interface:aximm*" $intf_vlnv] } {
-            if { [string equal $mode "Slave"] } {
-                dict set PS_PORT S_AXI_HP $pin
-            } elseif { [string equal $mode "Master"] } {
-                dict set PS_PORT M_AXI_GP $pin
-            }
-        }
-    }
+    lappend pins [get_bd_intf_pins -filter {VLNV =~ "xilinx.com:interface:aximm*"} -of $PS]
+    set S_AXI_HP [filter $pins {MODE =~ "Slave"}]
+    set M_AXI_GP [filter $pins {MODE =~ "Master"}]
+    set PS_PORT [dict create S_AXI_HP $S_AXI_HP M_AXI_GP $M_AXI_GP ]
     return $PS_PORT
 }
 
 proc add_vivado_bd_ip_ps { board_name } {
-    # ブロックデザインにプロセッサIPを追加してHPポートを開く
+    # ブロックデザインにPSのIPコアを追加してHPポートを開く
 
     set board_ps_defs {"zynq" {"processing_system7" "5.5"}
-                       "zynqplus" {"zynq_ultra_ps_e" "3.3"}
+                       "zynquplus" {"zynq_ultra_ps_e" "3.3"}
     }
-    set board [dict get $board_ps_defs [get_property architecture [get_parts [get_property PART_NAME [current_board_part]]]]]
+    set board_architecture [get_property architecture [get_parts [get_property PART_NAME [current_board_part]]]]
+    set board [dict get $board_ps_defs $board_architecture]
     set ps_name [lindex $board 0]
     set ps_version [lindex $board 1]
 
     set ps [create_bd_cell -type ip -vlnv xilinx.com:ip:$ps_name:$ps_version ${ps_name}_0]
-    # 周辺回路、DDRメモリをつなぐ
-    apply_bd_automation -rule \
-        xilinx.com:bd_rule:[lindex $board 0] \
-        -config {make_external "FIXED_IO, DDR" apply_board_preset "1" Master "Disable" Slave "Disable" } $ps
+
+    if { [string equal "zynq" $board_architecture]} {
+        set config [list \
+                    make_external "FIXED_IO, DDR" \
+                    apply_board_preset "1" \
+                    Master "Disable" \
+                    Slave "Disable" \
+                    ]
+    } elseif { [string match "zynquplus" $board_architecture] } {
+        set config [list apply_board_preset "1"]
+    }
+    apply_bd_automation -rule xilinx.com:bd_rule:$ps_name -config $config $ps
+
+
+    if { [string match "zynquplus" $board_architecture] } {
+        set_property CONFIG.PSU__USE__M_AXI_GP1 0 $ps
+    }
     return $ps
 }
 
@@ -192,9 +183,10 @@ proc incr_NUM_SI { intc_ip } {
     set NUM_SI [get_property CONFIG.NUM_SI $intc_ip]
 
     if { $NUM_SI < 16 } {
-        # Slaveを16まで増やすにはMasterが1である必要がある
-        set_property CONFIG.NUM_MI 1 $intc_ip
-        set_property CONFIG.NUM_SI [expr {$NUM_SI + 1}] $intc_ip
+        set_property -dict [list \
+            CONFIG.NUM_MI 1 \
+            CONFIG.NUM_SI [expr {$NUM_SI + 1}]\
+        ] $intc_ip
         return 1
     }
     return 0
@@ -203,10 +195,11 @@ proc incr_NUM_SI { intc_ip } {
 proc incr_NUM_MI { intc_ip } {
     set NUM_MI [get_property CONFIG.NUM_MI $intc_ip]
 
-    if { $NUM_MI < 64 } {
-        set_property CONFIG.NUM_MI [expr {$NUM_MI + 1}] $intc_ip
-        # Masterを64まで増やすにはSlaveが1である必要がある
-        set_property CONFIG.NUM_SI 1 $intc_ip
+    if { $NUM_MI < 16 } {
+        set_property -dict [list \
+            CONFIG.NUM_MI [expr {$NUM_MI + 1}] \
+            CONFIG.NUM_SI 1 \
+        ] $intc_ip
         return 1
     }
     return 0
@@ -215,48 +208,54 @@ proc incr_NUM_MI { intc_ip } {
 proc connect_axi_intc_gp_to_slave { } {
     # GPポートとIPコアのスレーブをAXI-Interconnectで繋ぐ
 
-    set user_ips [lsort -dictionary [get_bd_cells -filter { VLNV =~ "*:hls:*:*" || VLNV =~ "*:*:axi_dma:*"}]]
-    if { [llength $user_ips] == 0} {
+    set s_aximm_pins [get_bd_intf_pins \
+            -of_objects [lsort -dictionary \
+                [get_bd_cells -filter { VLNV =~ "*:hls:*:*" || VLNV =~ "*:*:axi_dma:*"}]] \
+            -filter {MODE == Slave && CONFIG.Protocol == AXI4LITE}]
+
+    set s_aximm_pins_len [llength $s_aximm_pins]
+    if { $s_aximm_pins_len == 0} {
         return
     }
-    set s_aximm_pins [get_bd_intf_pins -of_objects $user_ips -filter {MODE == Slave && CONFIG.Protocol == AXI4LITE}]
-    set s_aximm_pins_len [llength $s_aximm_pins]
 
     lappend intc_ips [add_vivado_bd_ip_axi_intc "gp_0"]
-
-    # GPポート(マスタ)とインターコネクト(スレーブ)を繋ぐ
-    set intc_ip [lindex $intc_ips 0]
-    set intc_ip_slave_pin [get_bd_intf_pins -of_objects $intc_ip -filter {MODE == Slave}]
-    set ps_port [get_ps_port]
-    set master [dict get $ps_port M_AXI_GP]
-    connect_bd_intf_net $master $intc_ip_slave_pin
+    # GPポート(マスタ)とインターコネクトのスレーブを繋ぐ
+    connect_bd_intf_net \
+        [dict get [get_ps_port] M_AXI_GP] \
+        [get_bd_intf_pins -of_objects [lindex $intc_ips 0] -filter {MODE == Slave}]
 
     # 追加で必要なAXI-Interconnectの個数
-    set num [expr {[llength $s_aximm_pins] / 64}]
+    if { $s_aximm_pins_len > 16 } {
+        set num [expr {[llength $s_aximm_pins] / 16}]
+    } else {
+        set num 0
+    }
+
     # 必要であればInterconnectにInterconnectを接続する
     for {set i 0} {$i < $num} {incr i} {
-        set len_axi_interconnect [llength $intc_ips]
-        lappend intc_ips [add_vivado_bd_ip_axi_intc "gp_${len_axi_interconnect}"]
-        set intc_ip_master [lindex $intc_ips 0]
-        set intc_ip_slave [lindex $intc_ips end]
-
-        set intc_ip_master_pin [lindex [get_intf $intc_ip_master "aximm" "Master"] end]
-        set intc_ip_slave_pin [lindex [get_intf $intc_ip_slave "aximm" "Slave"] end]
-
-        connect_bd_intf_net $intc_ip_master_pin $intc_ip_slave_pin
-
+        lappend intc_ips [add_vivado_bd_ip_axi_intc "gp_[llength $intc_ips]"]
+        connect_bd_intf_net \
+            [lindex [get_intf [lindex $intc_ips 0] "aximm" "Master"] end] \
+            [lindex [get_intf [lindex $intc_ips end] "aximm" "Slave"] end]
         incr_NUM_MI [lindex $intc_ips 0]
     }
+
     # 空いているInterconnectのポートとユーザIPを接続する
     set s_aximm_pin_index 0
     set target_intc_ip_index 0
     while { $s_aximm_pin_index < $s_aximm_pins_len} {
-        set target_pin [lindex $s_aximm_pins $s_aximm_pin_index]
+        set target_slave_pin [lindex $s_aximm_pins $s_aximm_pin_index]
         set target_intc_ip [lindex $intc_ips $target_intc_ip_index]
-        set intc_ip_master_pin [lindex [get_intf $target_intc_ip "aximm" "Master"] end]
+        # target_intc_ipが開いている一番後ろのピン
+        set target_intc_master_pin [lindex [get_intf $target_intc_ip "aximm" "Master"] end]
+        # 接続先のインターコネクトのピンが既に他のIPコアと接続済みなら、接続先のインターコネクトを変える
+        if { [llength [get_bd_intf_nets -quiet -of_objects $target_intc_master_pin]] > 0 } {
+            set target_intc_ip_index [expr { $target_intc_ip_index + 1 }]
+            continue
+        }
 
-        puts "Processing ${target_pin} connection"
-        connect_bd_intf_net $intc_ip_master_pin $target_pin
+        puts "Processing ${target_slave_pin} connection"
+        connect_bd_intf_net $target_intc_master_pin $target_slave_pin
         set s_aximm_pin_index [expr { $s_aximm_pin_index + 1 }]
         if { $s_aximm_pin_index != $s_aximm_pins_len && ![incr_NUM_MI $target_intc_ip ]} {
             set target_intc_ip_index [expr { $target_intc_ip_index + 1 }]
@@ -264,69 +263,70 @@ proc connect_axi_intc_gp_to_slave { } {
     }
 }
 
-proc connect_master_to_axi_intc_hp { } {
+proc connect_axi_intc_hp_to_master { } {
     # HPポートとIPコアのマスタをAXI-Interconnectで繋ぐ
 
-    set dma_ips [lsort -dictionary [get_bd_cells -filter { VLNV =~ "*:*:axi_dma:*"}]]
-    if { [llength $dma_ips] == 0} {
+    set m_axi_pins [get_bd_intf_pins -quiet \
+                    -of_objects [lsort -dictionary [get_bd_cells -filter { VLNV =~ "*:*:axi_dma:*"}]] \
+                    -filter {MODE == Master && CONFIG.Protocol == AXI4}]
+    set m_axi_pins_len [llength $m_axi_pins]
+    if { $m_axi_pins_len == 0} {
         return
     }
-    set m_axi_pins [get_bd_intf_pins -of_objects $dma_ips -filter {MODE == Master && CONFIG.Protocol == AXI4}]
-    set m_axi_pins_len [llength $m_axi_pins]
 
     lappend intc_ips [add_vivado_bd_ip_axi_intc "hp_0"]
-    set intc_ip [lindex $intc_ips 0]
-    set intc_ip_master_pin [get_bd_intf_pins -of_objects $intc_ip -filter {MODE == Master}]
-
-    set ps_port [get_ps_port]
-    set slave [dict get $ps_port S_AXI_HP]
-    connect_bd_intf_net $intc_ip_master_pin $slave
+    connect_bd_intf_net \
+        [get_bd_intf_pins -of_objects [lindex $intc_ips 0] -filter {MODE == Master}] \
+        [dict get [get_ps_port] S_AXI_HP]
 
     # 追加で必要なAXI-Interconnectの個数
-    set num [expr {[llength $m_axi_pins] / 16}]
+    if { $m_axi_pins_len > 16 } {
+        set num [expr {[llength $m_axi_pins] / 16}]
+    } else {
+        set num 0
+    }
     # 必要であればInterconnectにInterconnectを接続する
     for {set i 0} {$i < $num} {incr i} {
-        set len_axi_interconnect [llength $intc_ips]
-        lappend intc_ips [add_vivado_bd_ip_axi_intc "hp_${len_axi_interconnect}"]
-        set intc_ip_slave [lindex $intc_ips 0]
-        set intc_ip_master [lindex $intc_ips end]
-
-        set intc_ip_master_pin [lindex [get_intf $intc_ip_master "aximm" "Master"] end]
-        set intc_ip_slave_pin [lindex [get_intf $intc_ip_slave "aximm" "Slave"] end]
-
-        connect_bd_intf_net $intc_ip_master_pin $intc_ip_slave_pin
+        lappend intc_ips [add_vivado_bd_ip_axi_intc "hp_[llength $intc_ips]"]
+        connect_bd_intf_net \
+            [lindex [get_intf [lindex $intc_ips end] "aximm" "Master"] end] \
+            [lindex [get_intf [lindex $intc_ips 0] "aximm" "Slave"] end]
         incr_NUM_SI [lindex $intc_ips 0]
     }
     # 空いているInterconnectのポートとユーザIPを接続する
     set m_axi_pin_index 0
     set target_intc_ip_index 0
     while { $m_axi_pin_index < $m_axi_pins_len} {
-        set target_pin [lindex $m_axi_pins $m_axi_pin_index]
+        set target_master_pin [lindex $m_axi_pins $m_axi_pin_index]
         set target_intc_ip [lindex $intc_ips $target_intc_ip_index]
-        set intc_ip_slave_pin [lindex [get_intf $target_intc_ip "aximm" "Slave"] end]
+        set target_intc_ip_slave_pin [lindex [get_intf $target_intc_ip "aximm" "Slave"] end]
 
-        puts "Processing ${target_pin} connection"
-        connect_bd_intf_net $intc_ip_slave_pin $target_pin
+        # 接続先のインターコネクトのピンが既に他のIPコアと接続済みなら、接続先のインターコネクトを変える
+        if { [llength [get_bd_intf_nets -quiet -of_objects $target_intc_ip_slave_pin]] > 0 } {
+            set target_intc_ip_index [expr { $target_intc_ip_index + 1 }]
+            continue
+        }
+
+        puts "Processing ${target_master_pin} connection"
+        connect_bd_intf_net $target_intc_ip_slave_pin $target_master_pin
         set m_axi_pin_index [expr { $m_axi_pin_index + 1 }]
         if { $m_axi_pin_index != $m_axi_pins_len &&  ![incr_NUM_SI $target_intc_ip ]} {
             set target_intc_ip_index [expr { $target_intc_ip_index + 1 }]
         }
     }
+    # HPポートとのID_WIDTHのミスマッチを回避
+    set_property CONFIG.STRATEGY 1 [lindex $intc_ips 0]
 }
 
-proc connect { } {
-    set ips [lsort -dictionary [get_bd_cells -quiet -filter { VLNV =~ "*:hls:*:*" || VLNV =~ "*:*:axi_dma:*"}]]
-    # Processor System Resetを追加する
-    set sys_reset [create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 "sys_rst_0"]
-
-    connect_axi_intc_gp_to_slave
-    connect_master_to_axi_intc_hp
+proc connect_clk { } {
     set clk_in_list [get_bd_pins -filter {DIR == I && TYPE == clk } -of_objects [get_bd_cells]]
     set clk_out [get_bd_pins -filter {DIR == O && TYPE == clk} -of_objects [get_bd_cells]]
     foreach clk_in $clk_in_list {
         connect_bd_net $clk_out  $clk_in
     }
+}
 
+proc connect_rst { } {
     set rst_ex_out [get_bd_pins -quiet -filter {DIR == O && TYPE == rst} -of_objects [get_bd_cells -filter {NAME !~ "*axi_dma*" && NAME !~ "*sys_rst*"}]]
     set rst_ex_in [get_bd_pins /sys_rst_0/ext_reset_in]
     connect_bd_net $rst_ex_out $rst_ex_in
@@ -336,6 +336,19 @@ proc connect { } {
     foreach rst_in $rst_in_list {
         connect_bd_net $rst_out  $rst_in
     }
+}
+
+proc connect { } {
+    # Processor System Resetの追加
+    create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 "sys_rst_0"
+    # GPポートにつながるAXI-Interconnectのマスタ側とユーザIPやDMA回路のスレーブ側の接続
+    connect_axi_intc_gp_to_slave
+    # HPポートにつながるAXI-Interconnectのスレーブ側とDMA回路のマスタ側の接続
+    connect_axi_intc_hp_to_master
+    # 追加済みのIPコア(インスタンス)のクロック信号の接続
+    connect_clk
+    # 追加済みのIPコア(インスタンス)のリセット信号の接続
+    connect_rst
 }
 
 set index 0
@@ -431,10 +444,10 @@ save_bd_design
 
 if { $write_bitstream } {
     # IPにアドレス空間を割り振る
-    assign_bd_address
-    make_wrapper -files [get_files "$bd_file_name.bd"] -top -import
-    update_compile_order -fileset sources_1
-    launch_runs impl_1 -to_step write_bitstream
+    assign_bd_address -force
+    make_wrapper -force -files [get_files "$bd_file_name.bd"] -top -import
+    launch_runs impl_1 -jobs [expr { [get_param general.MaxThreads] - 1 }] -to_step write_bitstream
+    wait_on_run impl_1
 }
 
 if { $start_gui } {
