@@ -43,17 +43,33 @@ proc configure_axi_dma_ip { dma_ip user_ip_axis_intr_pin_list } {
     # DMA回路の設定
     # ユーザIPに応じてDMA回路のmm2s、s2mmをオフにする
 
-    set mm2s [expr {[llength [filter $user_ip_axis_intr_pin_list {MODE == "Slave"}]] > 0}]
-    set s2mm [expr {[llength [filter $user_ip_axis_intr_pin_list {MODE == "Master"}]] > 0}]
+    set user_ip_slave [filter $user_ip_axis_intr_pin_list {MODE == "Slave"}]
+    set user_ip_master [filter $user_ip_axis_intr_pin_list {MODE == "Master"}]
+    set include_mm2s [expr {[llength $user_ip_slave] > 0}]
+    set include_s2mm [expr {[llength $user_ip_master] > 0}]
+
     set config [ list \
-                CONFIG.c_include_mm2s $mm2s \
-                CONFIG.c_include_s2mm $s2mm \
+                CONFIG.c_include_mm2s $include_mm2s \
+                CONFIG.c_include_s2mm $include_s2mm \
                 CONFIG.c_include_sg 0 \
                 CONFIG.c_sg_include_stscntrl_strm 0 \
                 CONFIG.c_sg_length_width 26 \
     ]
 
     set_property -dict $config $dma_ip
+
+    # s2mmとmm2sのデータ幅を接続するユーザIPのデータ幅に合わせる
+    if { $include_s2mm } {
+        set user_ip_master_data_size [expr {[get_property CONFIG.TDATA_NUM_BYTES $user_ip_master] * 8}]
+        set_property CONFIG.c_m_axi_s2mm_data_width $user_ip_master_data_size $dma_ip
+        set_property CONFIG.c_s_axis_s2mm_tdata_width $user_ip_master_data_size $dma_ip
+    }
+    if { $include_mm2s } {
+        set user_ip_slave_data_size [expr {[get_property CONFIG.TDATA_NUM_BYTES $user_ip_slave] * 8}]
+        set_property CONFIG.c_m_axi_mm2s_data_width $user_ip_slave_data_size $dma_ip
+        set_property CONFIG.c_m_axis_mm2s_tdata_width  $user_ip_slave_data_size $dma_ip
+    }
+
 }
 
 proc connect_master_to_slave_axis { dma_ip user_ip_axis_intr_pin_list } {
@@ -74,7 +90,6 @@ proc connect_master_to_slave_axis { dma_ip user_ip_axis_intr_pin_list } {
         }
     }
 }
-
 
 proc add_vivado_bd_ip_axi_intc { name_suffix } {
     set intc_ip [create_bd_cell -type ip -vlnv xilinx.com:ip:axi_interconnect:2.1 "axi_interconnect_$name_suffix"]
