@@ -372,8 +372,8 @@ def create_fpga_node_pkg(dev_ws, prj, test_enabled, io_maps):
     return
 
 
-def create_vivado_bd(prj_name, board_name, ips_path, ips):
-    args = "-project_name {} -board_name {} -ips_directory {}".format(prj_name, board_name, ips_path)
+def create_vivado_bd(prj_name, device_part, ips_path, ips):
+    args = "-project_name {} -device_part {} -ips_directory {}".format(prj_name, device_part, ips_path)
     for name, count in ips.items():
         args += " -ip {} {}".format(name, count)
     run_sys_cmd(["vivado -nolog -nojournal -mode batch -source create_bd.tcl -tclargs {}".format(args)])
@@ -472,7 +472,7 @@ def main():
             print("\n[Forest]: Config file could not be opened! I need a config.forest file in the same directory as forest.py\n")
             sys.exit(1)
         prj = ""
-        board_name = ""
+        device_part = ""
         ip_path = ""
         ips = {}
         config_data = f.read().splitlines()
@@ -489,7 +489,7 @@ def main():
                     prj = "forest_vivado_" + value
                     print("\n[Forest]: vivado project will be generated in {}/{} \n".format(os.getcwd(), prj))
                 elif key == "FPGA board name":
-                    board_name = value
+                    device_part = value
                 elif key == "Absolute IP path":
                     ip_path = value
                 elif key == "User IP name":
@@ -499,7 +499,7 @@ def main():
                 elif key == "User IP count":
                     ips[reading_ip_name] += int(value)
 
-        create_vivado_bd(prj, board_name, ip_path, ips)
+        create_vivado_bd(prj, device_part, ip_path, ips)
         sys.exit()
 
     # Parse config file

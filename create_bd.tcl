@@ -1,28 +1,23 @@
 proc create_vivado_project {project_name project_directory} {
-    # プロジェクトの作成
-
     cd $project_directory
     create_project -force $project_name [append $project_directory $project_name]
 }
 
-proc setup_vivado_project {board_name ip_directory bd_name} {
-    # プロジェクトに設定するFPGAの設定とブロックデザインファイルの作成
+proc setup_vivado_project {device_part ip_directory bd_name} {
+    # Setup FPGA to be set up in a project and creating a block design file
 
-    # Vivado上に取り込んであるボードファイルの情報を取得
-    set board_part [get_board_parts -quiet -latest_file_version "*$board_name*"]
-    if { [string equal board_part ""] } {
-        puts [concat Error! No matching board file found for $board_name]
-        exit
+    # Configure board parts for the project
+    set board_part [get_board_parts -quiet -latest_file_version "*$device_part*"]
+    if { [string length $board_part] != 0 } {
+        set_property board_part $board_part [current_project]
+    } else {
+        set_property part $device_part [current_project]
     }
-    # プロジェクトにボード情報を設定する
-    set_property board_part $board_part [current_project]
+    # Setting related to the Vivado project
     set_property target_language "Verilog" [current_project]
-
-    # IPリポジトリをプロジェクトのIP Catalogに追加する
     set_property ip_repo_paths $ip_directory [current_fileset]
     update_ip_catalog
-
-    if { [string equal [get_filesets -quiet sources_1] ""] } {
+    if { [string length [get_filesets -quiet sources_1]] == 0 } {
         create_fileset -srcset sources_1
     }
     create_bd_design -verbose $bd_name
@@ -30,7 +25,7 @@ proc setup_vivado_project {board_name ip_directory bd_name} {
 }
 
 proc get_intf {ip_name protocol {master_slave "*"}} {
-    # 指定されたIP名とプロトコルからインターフェースオブジェクトを返す
+    # Return an interface object from a given IP name and protocol
 
     set filter "MODE =~ $master_slave && VLNV =~ xilinx.com:interface:$protocol*"
     lappend pins [get_bd_intf_pins -quiet \
@@ -40,8 +35,8 @@ proc get_intf {ip_name protocol {master_slave "*"}} {
 }
 
 proc configure_axi_dma_ip { dma_ip user_ip_axis_intr_pin_list } {
-    # DMA回路の設定
-    # ユーザIPに応じてDMA回路のmm2s、s2mmをオフにする
+    # Setup DMA circuit
+    # Turn off mm2s and s2mm in the DMA circuit according to user IP
 
     set user_ip_slave [filter $user_ip_axis_intr_pin_list {MODE == "Slave"}]
     set user_ip_master [filter $user_ip_axis_intr_pin_list {MODE == "Master"}]
@@ -58,7 +53,7 @@ proc configure_axi_dma_ip { dma_ip user_ip_axis_intr_pin_list } {
 
     set_property -dict $config $dma_ip
 
-    # s2mmとmm2sのデータ幅を接続するユーザIPのデータ幅に合わせる
+    # Match the data width of s2mm and mm2s to the data width of the user IP to be connected
     if { $include_s2mm } {
         set user_ip_master_data_size [expr {[get_property CONFIG.TDATA_NUM_BYTES $user_ip_master] * 8}]
         set_property CONFIG.c_m_axi_s2mm_data_width $user_ip_master_data_size $dma_ip
@@ -73,11 +68,8 @@ proc configure_axi_dma_ip { dma_ip user_ip_axis_intr_pin_list } {
 }
 
 proc connect_master_to_slave_axis { dma_ip user_ip_axis_intr_pin_list } {
-    # ユーザロジックのAXISとDMA回路をつなぐ
+    # Connect the AXIS pins of the user logic to the AXIS pins of the DMA circuit
 
-    # 1. DMAのaxisのインターフェースピンをもらう
-    # 2. DMAのaxisのmasterとuserのslaveを結ぶ(v.v.)
-    
     set dma_ip_intr_pin_list [get_intf [get_property NAME $dma_ip] "axis"]
 
     foreach user_pin $user_ip_axis_intr_pin_list {
@@ -107,22 +99,20 @@ proc add_vivado_bd_ip_axi_dma { axis_intf_pin_list } {
 }
 
 proc add_vivado_bd_ip { ip_name number {library "hls"} {version 1.0} } {
-    # ip_nameに指定されてたIPをブロックデザインに追加する
-    # 必要に応じてDMA回路も追加する
+    # Add the IP specified by ip_name to the block design
+    # Add DMA circuitry as needed
 
     set port [get_ps_port]
     set gp [dict get $port M_AXI_GP]
     for { set i 0 } { $i < $number } { incr i } {
         set ip_list_len [llength [get_bd_cells -quiet -patterns "*${ip_name}_*" ]]
-        # startgroup
         set added_ip [create_bd_cell -type ip -vlnv xilinx.com:$library:$ip_name:$version ${ip_name}_${ip_list_len}]
         set axis_intf_pin_list [get_intf ${ip_name}_${ip_list_len} "axis"]
-        # 入出力にAXISを含むならDMA回路を追加する
+        # Add DMA circuit if AXIS is included in the I/O of the user circuit
         if { [llength $axis_intf_pin_list] > 0 } {
             open_ps_hp
             add_vivado_bd_ip_axi_dma $axis_intf_pin_list
         }
-        # endgroup
     }
     if { [info exists added_ip ] } {
         return $added_ip
@@ -130,29 +120,25 @@ proc add_vivado_bd_ip { ip_name number {library "hls"} {version 1.0} } {
 }
 
 proc open_ps_hp { } {
-    # HPポートをオンにする
+    # Open the High Performance (HP) port of the Processing System
 
     global PS
 
-    set board_architecture [get_property architecture [get_parts [get_property PART_NAME [current_board_part]]]]
-
-    # HPのプロパティ名
+    set board_architecture [get_property  architecture [get_property part [current_project]]]
+    # Determine the name of the HP property from the board architecture
     if { [string equal "zynq" $board_architecture] } {
         set HP "CONFIG.PCW_USE_S_AXI_HP0"
     } elseif { [string equal "zynquplus" $board_architecture] } {
         set HP "CONFIG.PSU__USE__S_AXI_GP2"
+    } else {
+        return
     }
 
-    if { [expr {![info exists HP] || [get_property $HP $PS] }] } {
-        return
-    } else {
-        # プロセッサのHPポートをオンにする
-        set_property $HP 1 $PS
-    }
+    set_property $HP 1 $PS
 }
 
 proc get_ps_port {} {
-    # PSのHP・GPポートのピンを取得する
+    # Get the pins of the HP/GP port of the Processing System
 
     global PS
     lappend pins [get_bd_intf_pins -filter {VLNV =~ "xilinx.com:interface:aximm*"} -of $PS]
@@ -162,13 +148,13 @@ proc get_ps_port {} {
     return $PS_PORT
 }
 
-proc add_vivado_bd_ip_ps { board_name } {
-    # ブロックデザインにPSのIPコアを追加してHPポートを開く
+proc add_vivado_bd_ip_ps { } {
+    # Add Processing System IP core to the block design
 
     set board_ps_defs {"zynq" {"processing_system7" "5.5"}
                        "zynquplus" {"zynq_ultra_ps_e" "3.3"}
     }
-    set board_architecture [get_property architecture [get_parts [get_property PART_NAME [current_board_part]]]]
+    set board_architecture [get_property  architecture [get_property part [current_project]]]
     set board [dict get $board_ps_defs $board_architecture]
     set ps_name [lindex $board 0]
     set ps_version [lindex $board 1]
@@ -221,7 +207,7 @@ proc incr_NUM_MI { intc_ip } {
 }
 
 proc connect_axi_intc_gp_to_slave { } {
-    # GPポートとIPコアのスレーブをAXI-Interconnectで繋ぐ
+    # Connect GP ports and IP core slaves with AXI-Interconnect
 
     set s_aximm_pins [get_bd_intf_pins \
             -of_objects [lsort -dictionary \
@@ -234,19 +220,18 @@ proc connect_axi_intc_gp_to_slave { } {
     }
 
     lappend intc_ips [add_vivado_bd_ip_axi_intc "gp_0"]
-    # GPポート(マスタ)とインターコネクトのスレーブを繋ぐ
     connect_bd_intf_net \
         [dict get [get_ps_port] M_AXI_GP] \
         [get_bd_intf_pins -of_objects [lindex $intc_ips 0] -filter {MODE == Slave}]
 
-    # 追加で必要なAXI-Interconnectの個数
+    # Find the number of additional AXI-Interconnects needed
     if { $s_aximm_pins_len > 16 } {
         set num [expr {[llength $s_aximm_pins] / 16}]
     } else {
         set num 0
     }
 
-    # 必要であればInterconnectにInterconnectを接続する
+    # Interconnect to Interconnect if necessary
     for {set i 0} {$i < $num} {incr i} {
         lappend intc_ips [add_vivado_bd_ip_axi_intc "gp_[llength $intc_ips]"]
         connect_bd_intf_net \
@@ -255,15 +240,14 @@ proc connect_axi_intc_gp_to_slave { } {
         incr_NUM_MI [lindex $intc_ips 0]
     }
 
-    # 空いているInterconnectのポートとユーザIPを接続する
+    # Connect a free Interconnect port and user IP port
     set s_aximm_pin_index 0
     set target_intc_ip_index 0
     while { $s_aximm_pin_index < $s_aximm_pins_len} {
         set target_slave_pin [lindex $s_aximm_pins $s_aximm_pin_index]
         set target_intc_ip [lindex $intc_ips $target_intc_ip_index]
-        # target_intc_ipが開いている一番後ろのピン
         set target_intc_master_pin [lindex [get_intf $target_intc_ip "aximm" "Master"] end]
-        # 接続先のインターコネクトのピンが既に他のIPコアと接続済みなら、接続先のインターコネクトを変える
+        # If $target_intc_master_pin is already connected to another IP core, change the interconnect to which it is connected
         if { [llength [get_bd_intf_nets -quiet -of_objects $target_intc_master_pin]] > 0 } {
             set target_intc_ip_index [expr { $target_intc_ip_index + 1 }]
             continue
@@ -279,7 +263,7 @@ proc connect_axi_intc_gp_to_slave { } {
 }
 
 proc connect_axi_intc_hp_to_master { } {
-    # HPポートとIPコアのマスタをAXI-Interconnectで繋ぐ
+    # Connect HP port and IP core master with AXI-Interconnect
 
     set m_axi_pins [get_bd_intf_pins -quiet \
                     -of_objects [lsort -dictionary [get_bd_cells -filter { VLNV =~ "*:*:axi_dma:*"}]] \
@@ -294,13 +278,13 @@ proc connect_axi_intc_hp_to_master { } {
         [get_bd_intf_pins -of_objects [lindex $intc_ips 0] -filter {MODE == Master}] \
         [dict get [get_ps_port] S_AXI_HP]
 
-    # 追加で必要なAXI-Interconnectの個数
+    # Find the number of additional AXI-Interconnects needed
     if { $m_axi_pins_len > 16 } {
         set num [expr {[llength $m_axi_pins] / 16}]
     } else {
         set num 0
     }
-    # 必要であればInterconnectにInterconnectを接続する
+    # Interconnect to Interconnect if necessary
     for {set i 0} {$i < $num} {incr i} {
         lappend intc_ips [add_vivado_bd_ip_axi_intc "hp_[llength $intc_ips]"]
         connect_bd_intf_net \
@@ -308,7 +292,7 @@ proc connect_axi_intc_hp_to_master { } {
             [lindex [get_intf [lindex $intc_ips 0] "aximm" "Slave"] end]
         incr_NUM_SI [lindex $intc_ips 0]
     }
-    # 空いているInterconnectのポートとユーザIPを接続する
+    # Connect a free Interconnect port and user IP port
     set m_axi_pin_index 0
     set target_intc_ip_index 0
     while { $m_axi_pin_index < $m_axi_pins_len} {
@@ -316,7 +300,7 @@ proc connect_axi_intc_hp_to_master { } {
         set target_intc_ip [lindex $intc_ips $target_intc_ip_index]
         set target_intc_ip_slave_pin [lindex [get_intf $target_intc_ip "aximm" "Slave"] end]
 
-        # 接続先のインターコネクトのピンが既に他のIPコアと接続済みなら、接続先のインターコネクトを変える
+        # Change the interconnect to which it is connected if $target_intc_slave_pin is already connected to another IP core
         if { [llength [get_bd_intf_nets -quiet -of_objects $target_intc_ip_slave_pin]] > 0 } {
             set target_intc_ip_index [expr { $target_intc_ip_index + 1 }]
             continue
@@ -329,7 +313,7 @@ proc connect_axi_intc_hp_to_master { } {
             set target_intc_ip_index [expr { $target_intc_ip_index + 1 }]
         }
     }
-    # HPポートとのID_WIDTHのミスマッチを回避
+    # Avoid ID_WIDTH mismatch with HP port
     set_property CONFIG.STRATEGY 1 [lindex $intc_ips 0]
 }
 
@@ -354,15 +338,15 @@ proc connect_rst { } {
 }
 
 proc connect { } {
-    # Processor System Resetの追加
+    # Add "Processor System Reset"
     create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 "sys_rst_0"
-    # GPポートにつながるAXI-Interconnectのマスタ側とユーザIPやDMA回路のスレーブ側の接続
+    # Connect between the master side of AXI-Interconnect leading to the GP port and the slave side of the user IP or DMA circuit
     connect_axi_intc_gp_to_slave
-    # HPポートにつながるAXI-Interconnectのスレーブ側とDMA回路のマスタ側の接続
+    # Connect between the slave side of the AXI-Interconnect leading to the HP port and the master side of the DMA circuit
     connect_axi_intc_hp_to_master
-    # 追加済みのIPコア(インスタンス)のクロック信号の接続
+    # Connect clock signals of added IP cores
     connect_clk
-    # 追加済みのIPコア(インスタンス)のリセット信号の接続
+    # Connect resetお signals of added IP cores
     connect_rst
 }
 
@@ -375,35 +359,35 @@ while { $index < $argc } {
 
     switch $option_flag {
         -project_name {
-            # プロジェクト名(必須)
+            # Vivado project name (required)
             set project_name $value
         }
-        -board_name {
-            # ボードの名前(必須)
-            set board_name $value
+        -device_part {
+            # Board parts to be applied to the project (required)
+            set device_part $value
         }
         -bd_file_name {
-            # ブロックデザインファイルの名前(デフォルト値: design_1)
+            # Name of block design file (default: design_1)
             set bd_file_name $value
         }
         -ips_directory {
-            # ユーザIPがある絶対パス(必須)
+            # Absolute path where the user IP is located (required)
             set ips_directory $value
         }
         -auto_connect {
-            # 自動的にIPコア同士を接続するか(デフォルト値: 1)
+            # Whether to automatically connect IP cores to each other(default: 1)
             set auto_connect $value
         }
         -write_bitstream {
-            # ビットストリームを作成するか(デフォルト値: 1)
+            # Whether to create a bitstream (default: 1)
             set write_bitstream $value
         }
         -start_gui {
-            # VivadoのGUIを立ち上げるか(デフォルト値: 1)
+            # Whether to launch the Vivado GUI (default: 1)
             set start_gui $value
         }
         -ip {
-            # ブロックデザインに追加したいIPコア名と個数
+            # Name and number of IP cores to be added to the block design
             set ip_count [lindex $argv $index]
             incr index
             dict set ips $value $ip_count
@@ -419,7 +403,7 @@ if { [info exists project_name] } {
     create_vivado_project $project_name [file dirname [info script]]
 }
 
-if { ![info exists board_name] } {
+if { ![info exists device_part] } {
     exit
 }
 
@@ -443,27 +427,27 @@ if { ![info exists start_gui] } {
     set start_gui 1
 }
 
-setup_vivado_project $board_name $ips_directory $bd_file_name
-set PS [add_vivado_bd_ip_ps $board_name]
+setup_vivado_project $device_part $ips_directory $bd_file_name
+set PS [add_vivado_bd_ip_ps]
 if  { [info exists ips] } {
     dict for {ip_name ip_count} $ips {
         add_vivado_bd_ip $ip_name $ip_count
     }
 }
 
-if { $auto_connect } {
-    connect
-}
-
 save_bd_design
 
-if { $write_bitstream } {
-    # IPにアドレス空間を割り振る
-    assign_bd_address -force
-    make_wrapper -force -files [get_files "$bd_file_name.bd"] -top -import
-    launch_runs impl_1 -jobs [expr { [get_param general.MaxThreads] - 1 }] -to_step write_bitstream
-    wait_on_run impl_1
+if { $auto_connect } {
+    connect
+    save_bd_design
+    if { $write_bitstream } {
+        assign_bd_address -force
+        make_wrapper -force -files [get_files "$bd_file_name.bd"] -top -import
+        launch_runs impl_1 -jobs [expr { [get_param general.MaxThreads] - 1 }] -to_step write_bitstream
+        wait_on_run impl_1
+    }
 }
+
 
 if { $start_gui } {
     start_gui
