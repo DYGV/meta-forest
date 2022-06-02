@@ -83,11 +83,11 @@ proc connect_master_to_slave_axis { dma_ip user_ip_axis_intr_pin_list } {
     }
 }
 
-proc add_vivado_bd_ip_axi_intc { name_suffix } {
-    set intc_ip [create_bd_cell -type ip -vlnv xilinx.com:ip:axi_interconnect:2.1 "axi_interconnect_$name_suffix"]
+proc add_vivado_bd_ip_axi_interconnect { name_suffix } {
+    set interconnect_ip [create_bd_cell -type ip -vlnv xilinx.com:ip:axi_interconnect:2.1 "axi_interconnect_$name_suffix"]
     set config [ list CONFIG.NUM_SI 1 CONFIG.NUM_MI 1 ]
-    set_property -dict $config $intc_ip
-    return $intc_ip
+    set_property -dict $config $interconnect_ip
+    return $interconnect_ip
 }
 
 proc add_vivado_bd_ip_axi_dma { axis_intf_pin_list } {
@@ -100,7 +100,7 @@ proc add_vivado_bd_ip_axi_dma { axis_intf_pin_list } {
 
 proc add_vivado_bd_ip { ip_name number {library "hls"} {version 1.0} } {
     # Add the IP specified by ip_name to the block design
-    # Add DMA circuitry as needed
+    # Add DMA circuit as needed
 
     set port [get_ps_port]
     set gp [dict get $port M_AXI_GP]
@@ -180,33 +180,33 @@ proc add_vivado_bd_ip_ps { } {
     return $ps
 }
 
-proc incr_NUM_SI { intc_ip } {
-    set NUM_SI [get_property CONFIG.NUM_SI $intc_ip]
+proc incr_NUM_SI { interconnect_ip } {
+    set NUM_SI [get_property CONFIG.NUM_SI $interconnect_ip]
 
     if { $NUM_SI < 16 } {
         set_property -dict [list \
             CONFIG.NUM_MI 1 \
             CONFIG.NUM_SI [expr {$NUM_SI + 1}]\
-        ] $intc_ip
+        ] $interconnect_ip
         return 1
     }
     return 0
 }
 
-proc incr_NUM_MI { intc_ip } {
-    set NUM_MI [get_property CONFIG.NUM_MI $intc_ip]
+proc incr_NUM_MI { interconnect_ip } {
+    set NUM_MI [get_property CONFIG.NUM_MI $interconnect_ip]
 
     if { $NUM_MI < 16 } {
         set_property -dict [list \
             CONFIG.NUM_MI [expr {$NUM_MI + 1}] \
             CONFIG.NUM_SI 1 \
-        ] $intc_ip
+        ] $interconnect_ip
         return 1
     }
     return 0
 }
 
-proc connect_axi_intc_gp_to_slave { } {
+proc connect_axi_interconnect_gp_to_slave { } {
     # Connect GP ports and IP core slaves with AXI-Interconnect
 
     set s_aximm_pins [get_bd_intf_pins \
@@ -219,10 +219,10 @@ proc connect_axi_intc_gp_to_slave { } {
         return
     }
 
-    lappend intc_ips [add_vivado_bd_ip_axi_intc "gp_0"]
+    lappend interconnect_ips [add_vivado_bd_ip_axi_interconnect "gp_0"]
     connect_bd_intf_net \
         [dict get [get_ps_port] M_AXI_GP] \
-        [get_bd_intf_pins -of_objects [lindex $intc_ips 0] -filter {MODE == Slave}]
+        [get_bd_intf_pins -of_objects [lindex $interconnect_ips 0] -filter {MODE == Slave}]
 
     # Find the number of additional AXI-Interconnects needed
     if { $s_aximm_pins_len > 16 } {
@@ -233,36 +233,36 @@ proc connect_axi_intc_gp_to_slave { } {
 
     # Interconnect to Interconnect if necessary
     for {set i 0} {$i < $num} {incr i} {
-        lappend intc_ips [add_vivado_bd_ip_axi_intc "gp_[llength $intc_ips]"]
+        lappend interconnect_ips [add_vivado_bd_ip_axi_interconnect "gp_[llength $interconnect_ips]"]
         connect_bd_intf_net \
-            [lindex [get_intf [lindex $intc_ips 0] "aximm" "Master"] end] \
-            [lindex [get_intf [lindex $intc_ips end] "aximm" "Slave"] end]
-        incr_NUM_MI [lindex $intc_ips 0]
+            [lindex [get_intf [lindex $interconnect_ips 0] "aximm" "Master"] end] \
+            [lindex [get_intf [lindex $interconnect_ips end] "aximm" "Slave"] end]
+        incr_NUM_MI [lindex $interconnect_ips 0]
     }
 
     # Connect a free Interconnect port and user IP port
     set s_aximm_pin_index 0
-    set target_intc_ip_index 0
+    set target_interconnect_ip_index 0
     while { $s_aximm_pin_index < $s_aximm_pins_len} {
         set target_slave_pin [lindex $s_aximm_pins $s_aximm_pin_index]
-        set target_intc_ip [lindex $intc_ips $target_intc_ip_index]
-        set target_intc_master_pin [lindex [get_intf $target_intc_ip "aximm" "Master"] end]
-        # If $target_intc_master_pin is already connected to another IP core, change the interconnect to which it is connected
-        if { [llength [get_bd_intf_nets -quiet -of_objects $target_intc_master_pin]] > 0 } {
-            set target_intc_ip_index [expr { $target_intc_ip_index + 1 }]
+        set target_interconnect_ip [lindex $interconnect_ips $target_interconnect_ip_index]
+        set target_interconnect_master_pin [lindex [get_intf $target_interconnect_ip "aximm" "Master"] end]
+        # If $target_interconnect_master_pin is already connected to another IP core, change the interconnect to which it is connected
+        if { [llength [get_bd_intf_nets -quiet -of_objects $target_interconnect_master_pin]] > 0 } {
+            set target_interconnect_ip_index [expr { $target_interconnect_ip_index + 1 }]
             continue
         }
 
         puts "Processing ${target_slave_pin} connection"
-        connect_bd_intf_net $target_intc_master_pin $target_slave_pin
+        connect_bd_intf_net $target_interconnect_master_pin $target_slave_pin
         set s_aximm_pin_index [expr { $s_aximm_pin_index + 1 }]
-        if { $s_aximm_pin_index != $s_aximm_pins_len && ![incr_NUM_MI $target_intc_ip ]} {
-            set target_intc_ip_index [expr { $target_intc_ip_index + 1 }]
+        if { $s_aximm_pin_index != $s_aximm_pins_len && ![incr_NUM_MI $target_interconnect_ip ]} {
+            set target_interconnect_ip_index [expr { $target_interconnect_ip_index + 1 }]
         }
     }
 }
 
-proc connect_axi_intc_hp_to_master { } {
+proc connect_axi_interconnect_hp_to_master { } {
     # Connect HP port and IP core master with AXI-Interconnect
 
     set m_axi_pins [get_bd_intf_pins -quiet \
@@ -273,9 +273,9 @@ proc connect_axi_intc_hp_to_master { } {
         return
     }
 
-    lappend intc_ips [add_vivado_bd_ip_axi_intc "hp_0"]
+    lappend interconnect_ips [add_vivado_bd_ip_axi_interconnect "hp_0"]
     connect_bd_intf_net \
-        [get_bd_intf_pins -of_objects [lindex $intc_ips 0] -filter {MODE == Master}] \
+        [get_bd_intf_pins -of_objects [lindex $interconnect_ips 0] -filter {MODE == Master}] \
         [dict get [get_ps_port] S_AXI_HP]
 
     # Find the number of additional AXI-Interconnects needed
@@ -286,35 +286,35 @@ proc connect_axi_intc_hp_to_master { } {
     }
     # Interconnect to Interconnect if necessary
     for {set i 0} {$i < $num} {incr i} {
-        lappend intc_ips [add_vivado_bd_ip_axi_intc "hp_[llength $intc_ips]"]
+        lappend interconnect_ips [add_vivado_bd_ip_axi_interconnect "hp_[llength $interconnect_ips]"]
         connect_bd_intf_net \
-            [lindex [get_intf [lindex $intc_ips end] "aximm" "Master"] end] \
-            [lindex [get_intf [lindex $intc_ips 0] "aximm" "Slave"] end]
-        incr_NUM_SI [lindex $intc_ips 0]
+            [lindex [get_intf [lindex $interconnect_ips end] "aximm" "Master"] end] \
+            [lindex [get_intf [lindex $interconnect_ips 0] "aximm" "Slave"] end]
+        incr_NUM_SI [lindex $interconnect_ips 0]
     }
     # Connect a free Interconnect port and user IP port
     set m_axi_pin_index 0
-    set target_intc_ip_index 0
+    set target_interconnect_ip_index 0
     while { $m_axi_pin_index < $m_axi_pins_len} {
         set target_master_pin [lindex $m_axi_pins $m_axi_pin_index]
-        set target_intc_ip [lindex $intc_ips $target_intc_ip_index]
-        set target_intc_ip_slave_pin [lindex [get_intf $target_intc_ip "aximm" "Slave"] end]
+        set target_interconnect_ip [lindex $interconnect_ips $target_interconnect_ip_index]
+        set target_interconnect_ip_slave_pin [lindex [get_intf $target_interconnect_ip "aximm" "Slave"] end]
 
-        # Change the interconnect to which it is connected if $target_intc_slave_pin is already connected to another IP core
-        if { [llength [get_bd_intf_nets -quiet -of_objects $target_intc_ip_slave_pin]] > 0 } {
-            set target_intc_ip_index [expr { $target_intc_ip_index + 1 }]
+        # Change the interconnect to which it is connected if $target_interconnect_slave_pin is already connected to another IP core
+        if { [llength [get_bd_intf_nets -quiet -of_objects $target_interconnect_ip_slave_pin]] > 0 } {
+            set target_interconnect_ip_index [expr { $target_interconnect_ip_index + 1 }]
             continue
         }
 
         puts "Processing ${target_master_pin} connection"
-        connect_bd_intf_net $target_intc_ip_slave_pin $target_master_pin
+        connect_bd_intf_net $target_interconnect_ip_slave_pin $target_master_pin
         set m_axi_pin_index [expr { $m_axi_pin_index + 1 }]
-        if { $m_axi_pin_index != $m_axi_pins_len && ![incr_NUM_SI $target_intc_ip ]} {
-            set target_intc_ip_index [expr { $target_intc_ip_index + 1 }]
+        if { $m_axi_pin_index != $m_axi_pins_len && ![incr_NUM_SI $target_interconnect_ip ]} {
+            set target_interconnect_ip_index [expr { $target_interconnect_ip_index + 1 }]
         }
     }
     # Avoid ID_WIDTH mismatch with HP port
-    set_property CONFIG.STRATEGY 1 [lindex $intc_ips 0]
+    set_property CONFIG.STRATEGY 1 [lindex $interconnect_ips 0]
 }
 
 proc connect_clk { } {
@@ -341,9 +341,9 @@ proc connect { } {
     # Add "Processor System Reset"
     create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 "sys_rst_0"
     # Connect between the master side of AXI-Interconnect leading to the GP port and the slave side of the user IP or DMA circuit
-    connect_axi_intc_gp_to_slave
+    connect_axi_interconnect_gp_to_slave
     # Connect between the slave side of the AXI-Interconnect leading to the HP port and the master side of the DMA circuit
-    connect_axi_intc_hp_to_master
+    connect_axi_interconnect_hp_to_master
     # Connect clock signals of added IP cores
     connect_clk
     # Connect reset signals of added IP cores
