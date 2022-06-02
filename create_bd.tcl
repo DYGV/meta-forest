@@ -62,7 +62,7 @@ proc configure_axi_dma_ip { dma_ip user_ip_axis_intr_pin_list } {
     if { $include_mm2s } {
         set user_ip_slave_data_size [expr {[get_property CONFIG.TDATA_NUM_BYTES $user_ip_slave] * 8}]
         set_property CONFIG.c_m_axi_mm2s_data_width $user_ip_slave_data_size $dma_ip
-        set_property CONFIG.c_m_axis_mm2s_tdata_width  $user_ip_slave_data_size $dma_ip
+        set_property CONFIG.c_m_axis_mm2s_tdata_width $user_ip_slave_data_size $dma_ip
     }
 
 }
@@ -124,7 +124,7 @@ proc open_ps_hp { } {
 
     global PS
 
-    set board_architecture [get_property  architecture [get_property part [current_project]]]
+    set board_architecture [get_property architecture [get_property part [current_project]]]
     # Determine the name of the HP property from the board architecture
     if { [string equal "zynq" $board_architecture] } {
         set HP "CONFIG.PCW_USE_S_AXI_HP0"
@@ -154,7 +154,7 @@ proc add_vivado_bd_ip_ps { } {
     set board_ps_defs {"zynq" {"processing_system7" "5.5"}
                        "zynquplus" {"zynq_ultra_ps_e" "3.3"}
     }
-    set board_architecture [get_property  architecture [get_property part [current_project]]]
+    set board_architecture [get_property architecture [get_property part [current_project]]]
     set board [dict get $board_ps_defs $board_architecture]
     set ps_name [lindex $board 0]
     set ps_version [lindex $board 1]
@@ -309,7 +309,7 @@ proc connect_axi_intc_hp_to_master { } {
         puts "Processing ${target_master_pin} connection"
         connect_bd_intf_net $target_intc_ip_slave_pin $target_master_pin
         set m_axi_pin_index [expr { $m_axi_pin_index + 1 }]
-        if { $m_axi_pin_index != $m_axi_pins_len &&  ![incr_NUM_SI $target_intc_ip ]} {
+        if { $m_axi_pin_index != $m_axi_pins_len && ![incr_NUM_SI $target_intc_ip ]} {
             set target_intc_ip_index [expr { $target_intc_ip_index + 1 }]
         }
     }
@@ -321,7 +321,7 @@ proc connect_clk { } {
     set clk_in_list [get_bd_pins -filter {DIR == I && TYPE == clk } -of_objects [get_bd_cells]]
     set clk_out [get_bd_pins -filter {DIR == O && TYPE == clk} -of_objects [get_bd_cells]]
     foreach clk_in $clk_in_list {
-        connect_bd_net $clk_out  $clk_in
+        connect_bd_net $clk_out $clk_in
     }
 }
 
@@ -333,7 +333,7 @@ proc connect_rst { } {
     set rst_in_list [get_bd_pins -quiet -filter {DIR == I && TYPE == rst} -of_objects [get_bd_cells -filter {NAME !~ "*sys_rst*"}]]
     set rst_out [get_bd_pins /sys_rst_0/peripheral_aresetn]
     foreach rst_in $rst_in_list {
-        connect_bd_net $rst_out  $rst_in
+        connect_bd_net $rst_out $rst_in
     }
 }
 
@@ -346,108 +346,112 @@ proc connect { } {
     connect_axi_intc_hp_to_master
     # Connect clock signals of added IP cores
     connect_clk
-    # Connect resetお signals of added IP cores
+    # Connect reset signals of added IP cores
     connect_rst
 }
 
-set index 0
-while { $index < $argc } {
-    set option_flag [lindex $argv $index]
-    incr index
-    set value [lindex $argv $index]
-    incr index
+# Vivado project name (required arg)
+set project_name ""
+# Board parts to be applied to the project (required arg)
+set device_part ""
+# Absolute path where the user IP is located (required arg)
+set ips_directory ""
+# Name of block design file (default: "design_1")
+set bd_file_name "design_1"
+# Whether to automatically connect IP cores to each other (default: false)
+set auto_connect 0
+# Whether to create a bitstream (default: false)
+set write_bitstream 0
+# Whether to launch the Vivado GUI (default: false)
+set start_gui 0
+
+set seeking_index 0
+
+while { $seeking_index < $argc } {
+    set option_flag [lindex $argv $seeking_index]
+    incr seeking_index
 
     switch $option_flag {
         -project_name {
-            # Vivado project name (required)
-            set project_name $value
+            set project_name [lindex $argv $seeking_index]
+            incr seeking_index
         }
         -device_part {
-            # Board parts to be applied to the project (required)
-            set device_part $value
+            set device_part [lindex $argv $seeking_index]
+            incr seeking_index
         }
         -bd_file_name {
-            # Name of block design file (default: design_1)
-            set bd_file_name $value
+            set bd_file_name [lindex $argv $seeking_index]
+            incr seeking_index
         }
         -ips_directory {
-            # Absolute path where the user IP is located (required)
-            set ips_directory $value
+            set ips_directory [lindex $argv $seeking_index]
+            incr seeking_index
         }
         -auto_connect {
-            # Whether to automatically connect IP cores to each other(default: 1)
-            set auto_connect $value
+            set auto_connect 1
         }
         -write_bitstream {
-            # Whether to create a bitstream (default: 1)
-            set write_bitstream $value
+            set write_bitstream 1
         }
         -start_gui {
-            # Whether to launch the Vivado GUI (default: 1)
-            set start_gui $value
+            set start_gui 1
         }
         -ip {
             # Name and number of IP cores to be added to the block design
-            set ip_count [lindex $argv $index]
-            incr index
-            dict set ips $value $ip_count
+            set ip_name [lindex $argv $seeking_index]
+            incr seeking_index
+            set ip_count [lindex $argv $seeking_index]
+            incr seeking_index
+            dict set ips $ip_name $ip_count
         }
         default {
-            puts $option_flag
+            puts "ERROR option '$option_flag' is not a valid option."
             exit
         }
     }
 }
 
-if { [info exists project_name] } {
-    create_vivado_project $project_name [file dirname [info script]]
-}
-
-if { ![info exists device_part] } {
+if { $project_name eq "" } {
+    puts "No project name was specified for vivado project."
     exit
 }
 
-if { ![info exists ips_directory] } {
+if { $device_part eq "" } {
+    puts "No device part name was specified."
     exit
 }
 
-if { ![info exists bd_file_name] } {
-    set bd_file_name "design_1"
+if { $ips_directory eq "" } {
+    puts "No directory where the user IP is located was specified."
+    exit
 }
 
-if { ![info exists auto_connect] } {
-    set auto_connect 1
+if { ![info exists ips] } {
+    exit
 }
 
-if { ![info exists write_bitstream] } {
-    set write_bitstream 1
-}
-
-if { ![info exists start_gui] } {
-    set start_gui 1
-}
-
+create_vivado_project $project_name [file dirname [info script]]
 setup_vivado_project $device_part $ips_directory $bd_file_name
-set PS [add_vivado_bd_ip_ps]
-if  { [info exists ips] } {
-    dict for {ip_name ip_count} $ips {
-        add_vivado_bd_ip $ip_name $ip_count
-    }
-}
 
-save_bd_design
+set PS [add_vivado_bd_ip_ps]
+dict for {ip_name ip_count} $ips {
+    add_vivado_bd_ip $ip_name $ip_count
+}
 
 if { $auto_connect } {
     connect
-    save_bd_design
     if { $write_bitstream } {
         assign_bd_address -force
         make_wrapper -force -files [get_files "$bd_file_name.bd"] -top -import
+        launch_runs synth_1 -jobs [expr { [get_param general.MaxThreads] - 1 }]
+        wait_on_run synth_1
         launch_runs impl_1 -jobs [expr { [get_param general.MaxThreads] - 1 }] -to_step write_bitstream
         wait_on_run impl_1
     }
 }
 
+save_bd_design
 
 if { $start_gui } {
     start_gui

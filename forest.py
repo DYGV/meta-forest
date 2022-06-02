@@ -374,6 +374,7 @@ def create_fpga_node_pkg(dev_ws, prj, test_enabled, io_maps):
 
 def create_vivado_bd(prj_name, device_part, ips_path, ips):
     args = "-project_name {} -device_part {} -ips_directory {}".format(prj_name, device_part, ips_path)
+    args += " -auto_connect -write_bitstream -start_gui"
     for name, count in ips.items():
         args += " -ip {} {}".format(name, count)
     run_sys_cmd(["vivado -nolog -nojournal -mode batch -source create_bd.tcl -tclargs {}".format(args)])
