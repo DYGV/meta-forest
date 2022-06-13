@@ -661,7 +661,7 @@ def generate_node(args):
             signal_name = value
         elif key == "Type":
             type_match = re.search(
-                r"(?P<type>[a-zA-Z]+)" r"(?P<n_bits>\d+)", value
+                r"(?P<unsigned>[u|U]?)(?P<type>[a-zA-Z]+)" r"(?P<n_bits>\d+)", value
             )
             # Do error handling
             if not type_match:
@@ -678,7 +678,7 @@ def generate_node(args):
             type_dict = {}
             type_dict["type"] = type_parsed["type"].lower()
             type_dict["n_bits"] = int(type_parsed["n_bits"])
-            type_dict["signed"] = type_dict["type"] in ["float", "int"]
+            type_dict["signed"] = type_parsed["unsigned"] == ""
             type_dict["n_elem"] = (
                 int(n_elem_match.groups()[0])
                 if n_elem_match is not None
