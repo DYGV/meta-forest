@@ -2,6 +2,7 @@ from {{ prj_name }}_fpga_node import ros_fpga_lib
 from launch_ros.actions import Node
 from launch import LaunchDescription
 
+
 def generate_launch_description():
     ros_fpga_lib.FpgaDriver(None).program_fpga()
     return LaunchDescription(
@@ -9,7 +10,7 @@ def generate_launch_description():
             Node(
                 package="{{ prj_name }}_fpga_node",
                 node_executable="fpga_node",
-                node_name="fpga_node_%s" %  ip_name,
+                node_name="fpga_node_%s" % ip_name,
                 parameters=[
                     {
                         "fpga_in_topic": "fpga_in_topic_%s" % ip_name,
@@ -20,6 +21,6 @@ def generate_launch_description():
                 ],
                 output="screen",
             )
-            for ip_name in {{ ip_names }}
+            for ip_name in {{ip_names}}
         ]
     )

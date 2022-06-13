@@ -11,8 +11,7 @@ from pynq import MMIO, Overlay, allocate
 print = functools.partial(print, flush=True)
 
 
-class FpgaDriver():
-
+class FpgaDriver:
     def __init__(self, user_ip):
         # FPGA bit file
         self.bit_file = "{{ bit_file }}"
@@ -23,13 +22,13 @@ class FpgaDriver():
     def update_map(self, user_ip):
         if not user_ip:
             return
-        io_maps_json = open(get_package_share_directory("{{ prj_name }}_fpga_node") + '/io_maps.json', "r")
+        io_maps_json = open(get_package_share_directory("{{ prj_name }}_fpga_node") + "/io_maps.json", "r")
         io_maps = json.load(io_maps_json)
         io_maps_json.close()
         self.map_num_str = str(io_maps["map_num"][user_ip])
 
         # Define the arrays that hold the information about the input and output
-        # signals. If the value corresponds to a double or float variable, it is        
+        # signals. If the value corresponds to a double or float variable, it is
         # in IEEE-754 representation
         self.in_map = io_maps["maps"][self.map_num_str]["input"]
         self.out_map = io_maps["maps"][self.map_num_str]["output"]
@@ -39,11 +38,12 @@ class FpgaDriver():
             import fnmatch
             import re
             from pynq.pl_server import hwh_parser
+
             hwh_file = hwh_parser.get_hwh_name(self.bit_file)
             hwh = hwh_parser.HWH(hwh_file)
             pins = fnmatch.filter(hwh.pins.keys(), "{}/*TDATA".format(self.user_ip))
             for pin in pins:
-                dma_match = re.search(r'axi_dma_\d+', hwh.pins[pin])
+                dma_match = re.search(r"axi_dma_\d+", hwh.pins[pin])
                 if dma_match is not None:
                     self.dma_name = dma_match.group()
                     break
@@ -58,12 +58,12 @@ class FpgaDriver():
         self.update_map(ip_name)
 
     def reg_write(self, offset, data):
-       print("reg_write(0x{:04X}, 0x{:08X})".format(offset, data))
-       mmio_axi32.write(offset, data)
+        print("reg_write(0x{:04X}, 0x{:08X})".format(offset, data))
+        mmio_axi32.write(offset, data)
 
     def reg_read(self, offset):
-       rd = mmio_axi32.read(offset)
-       print("reg_read(0x{:04X}) --> 0x{:08X}".format(offset, rd))
+        rd = mmio_axi32.read(offset)
+        print("reg_read(0x{:04X}) --> 0x{:08X}".format(offset, rd))
 
     def program_fpga(self):
         # Program the FPGA and set the Overlay
@@ -72,7 +72,7 @@ class FpgaDriver():
         print("Bit file downloaded")
 
     def setup_fpga(self):
-        # Set the MMIO and DMA classes 
+        # Set the MMIO and DMA classes
         regs = self.ovl.ip_dict[self.user_ip]
         phys_addr = regs["phys_addr"]
         addr_range = regs["addr_range"]
@@ -89,7 +89,7 @@ class FpgaDriver():
     def has_axis(self, io_map):
         has_axis = False
         for signal_name in io_map.keys():
-            has_axis |= (io_map[signal_name]["protocol"] == "stream")
+            has_axis |= io_map[signal_name]["protocol"] == "stream"
         return has_axis
 
     def allocate_dma_buffer(self, io_map):
@@ -127,11 +127,11 @@ class FpgaDriver():
                 arr_head = self.in_map[signal_name]["addr"]
                 arr_size = self.in_map[signal_name]["n_elem"]
                 if signal_type == "int":
-                    if n_bits == 32: # int32
+                    if n_bits == 32:  # int32
                         # 1 array element per address
                         for i in range(arr_size):
-                            self.mmio.write(arr_head + 4*i, int(msg[i]))
-                    elif n_bits == 8: # uint8
+                            self.mmio.write(arr_head + 4 * i, int(msg[i]))
+                    elif n_bits == 8:  # uint8
                         # 4 array elements per address
                         byte_arr = bytes(msg)
                         lower_lim = 0
@@ -147,22 +147,22 @@ class FpgaDriver():
                             upper_lim += 4
                             addr += 4
                         if n_last != 0:
-                            partition = byte_arr[arr_size-n_last:arr_size]
+                            partition = byte_arr[arr_size - n_last : arr_size]
                             pad = bytes(padding)
-                            partition+=pad
+                            partition += pad
                             self.mmio.write(addr, partition)
                 elif signal_type == "float":
-                    if n_bits == 32: # Float
+                    if n_bits == 32:  # Float
                         # 1 array element per address
                         for i in range(arr_size):
                             ieee_rep = self.dec_to_ieee(msg[i], "float")
-                            self.mmio.write(arr_head + 4*i, ieee_rep)
-                    elif n_bits == 64: # Double
+                            self.mmio.write(arr_head + 4 * i, ieee_rep)
+                    elif n_bits == 64:  # Double
                         # 1 array element per 2 addresses
                         for i in range(arr_size):
                             ieee_rep_hi, ieee_rep_lo = self.dec_to_ieee(msg[i], "double")
-                            self.mmio.write(arr_head + 8*i, ieee_rep_lo)
-                            self.mmio.write(arr_head + 8*i + 4, ieee_rep_hi)
+                            self.mmio.write(arr_head + 8 * i, ieee_rep_lo)
+                            self.mmio.write(arr_head + 8 * i + 4, ieee_rep_hi)
 
             # case 2 - Signal does not represent an array
             else:
@@ -170,20 +170,20 @@ class FpgaDriver():
                 if signal_type == "int":
                     self.mmio.write(addr, int(msg))
                 elif signal_type == "float":
-                    if n_bits == 32: # Float
+                    if n_bits == 32:  # Float
                         ieee_rep = self.dec_to_ieee(msg, "float")
                         self.mmio.write(addr, ieee_rep)
-                    elif n_bits == 64: # Double
+                    elif n_bits == 64:  # Double
                         ieee_rep_hi, ieee_rep_lo = self.dec_to_ieee(msg, "double")
                         self.mmio.write(addr, ieee_rep_lo)
                         self.mmio.write(addr + 4, ieee_rep_hi)
 
         elif protocol == "stream":
             data_size_in = self.in_map[signal_name]["n_elem"]
-            
+
             for i in range(data_size_in):
                 self.input_buffer[i] = msg[i]
-                                
+
     def process_output(self, signal_name):
         # Read the value from the FPGA and return it in a format that can be assigned to a msg
         # Need to figure out if the output is an array, and the output type
@@ -199,43 +199,43 @@ class FpgaDriver():
                 arr_size = self.out_map[signal_name]["n_elem"]
                 val = [0] * arr_size
                 if signal_type == "int":
-                    if n_bits == 32: # int32
+                    if n_bits == 32:  # int32
                         for i in range(arr_size):
-                            val[i] = self.mmio.read(arr_head + 4*i)
+                            val[i] = self.mmio.read(arr_head + 4 * i)
                         return val
-                    elif n_bits == 8: # uint8
+                    elif n_bits == 8:  # uint8
                         # 4 array elements per address
                         n_exact = arr_size // 4
                         n_last = arr_size % 4
                         padding = 4 - n_last
                         addr = arr_head
                         for i in range(n_exact):
-                            result = self.mmio.read(addr).to_bytes(4, 'little')
+                            result = self.mmio.read(addr).to_bytes(4, "little")
                             for j in range(4):
-                                val[j+i] = int(result[j])
+                                val[j + i] = int(result[j])
                             addr += 4
                         if n_last != 0:
-                            result = self.mmio.read(addr).to_bytes(n_last, 'little')
+                            result = self.mmio.read(addr).to_bytes(n_last, "little")
                             for j in range(n_last):
-                                val[arr_size-n_last+j] = int(result[j])
+                                val[arr_size - n_last + j] = int(result[j])
                         return val
                 elif signal_type == "float":
-                    if n_bits == 32: # Float
+                    if n_bits == 32:  # Float
                         for i in range(arr_size):
-                            val_ieee = self.mmio.read(arr_head + 4*i)
+                            val_ieee = self.mmio.read(arr_head + 4 * i)
                             val_ieee = hex(val)[2:]
                             val[i] = self.ieee_to_dec(val_ieee, "float")
                         return val
-                    elif n_bits == 64: # Double
+                    elif n_bits == 64:  # Double
                         for i in range(arr_size):
-                            val_ieee_lo = self.mmio.read(arr_head + 8*i)
-                            val_ieee_hi = self.mmio.read(arr_head + 8*i + 4)
+                            val_ieee_lo = self.mmio.read(arr_head + 8 * i)
+                            val_ieee_hi = self.mmio.read(arr_head + 8 * i + 4)
                             val_ieee = hex((val_ieee_hi << 32) | val_ieee_lo)[2:]
                             val[i] = self.ieee_to_dec(val_ieee, "double")
                         return val
 
         elif protocol == "stream":
-            
+
             data_size_out = self.out_map[signal_name]["n_elem"]
             if self.out_map[signal_name]["n_bits"] == 64:
                 val = np.zeros((data_size_out,), dtype=np.uint64)
@@ -245,9 +245,9 @@ class FpgaDriver():
                 val = [0] * data_size_out
 
             for i in range(data_size_out):
-                if self.out_map[signal_name]["n_bits"] == 64: # uint64
+                if self.out_map[signal_name]["n_bits"] == 64:  # uint64
                     val[i] = self.output_buffer[i]
-                elif signal_type == "float": # float32
+                elif signal_type == "float":  # float32
                     val[i] = self.output_buffer[i]
                 else:
                     val[i] = int(self.output_buffer[i])
@@ -261,7 +261,7 @@ class FpgaDriver():
             self.dma.sendchannel.transfer(self.input_buffer)
         if self.has_axis_out:
             self.dma.recvchannel.transfer(self.output_buffer)
-	
+
         return
 
     def do_calc(self):
@@ -269,39 +269,38 @@ class FpgaDriver():
         self.mmio.write(0x00, 1)
         # Wait for streams, if any
         if self.has_axis_in and self.dma.sendchannel.running:
-            self.dma.sendchannel.wait() 
+            self.dma.sendchannel.wait()
         if self.has_axis_out and self.dma.recvchannel.running:
-            self.dma.recvchannel.wait() 
-       
+            self.dma.recvchannel.wait()
+
         # Wait for the computation to be finished (AP_DONE)
         self.wait_result()
 
     def wait_result(self):
         # Wait for AP_DONE
-        while(not ((self.mmio.read(0x00) >> 1) & 0x0001)):
+        while not ((self.mmio.read(0x00) >> 1) & 0x0001):
             continue
 
     def dec_to_ieee(self, num, data_type):
         # Converts a decimal number to IEEE-754 representation
         if data_type == "float":
-            num_ieee_hex = struct.pack('>f', num).hex()
+            num_ieee_hex = struct.pack(">f", num).hex()
             num_ieee = int(num_ieee_hex, 16)
             return num_ieee
         elif data_type == "double":
-            num_ieee = struct.pack('>d', num).hex()
+            num_ieee = struct.pack(">d", num).hex()
             num_hi = int(num_ieee[:8], 16)
             num_lo = int(num_ieee[8:], 16)
             return num_hi, num_lo
 
     def ieee_to_dec(self, num_ieee, data_type):
         # Converts a number in IEEE-754 representation to its decimal form
-        if num_ieee != '0':
+        if num_ieee != "0":
             num_in_bytes = bytes.fromhex(num_ieee)
             if data_type == "float":
-                num_dec = struct.unpack('>f', num_in_bytes)[0]
+                num_dec = struct.unpack(">f", num_in_bytes)[0]
             elif data_type == "double":
-                num_dec = struct.unpack('>d', num_in_bytes)[0]
+                num_dec = struct.unpack(">d", num_in_bytes)[0]
         else:
             num_dec = 0
         return num_dec
-

@@ -12,16 +12,10 @@ from {{ prj_name }}_interface.msg import *
 
 # Define the FPGA Node class (has publisher and subscriber methods)
 class FpgaNode(Node):
-
     def __init__(self):
-        super().__init__('fpga_node')
-        param_list = [
-            ("fpga_out_topic", "fpga_out_topic_{{ ip_name }}"),
-            ("fpga_in_topic", "fpga_in_topic_{{ ip_name }}"),
-            ("program_fpga", True),
-            ("user_ip", "{{ ip_name }}")
-        ]
-        params = self.declare_parameters(namespace='', parameters=param_list)
+        super().__init__("fpga_node")
+        param_list = [("fpga_out_topic", "fpga_out_topic_{{ ip_name }}"), ("fpga_in_topic", "fpga_in_topic_{{ ip_name }}"), ("program_fpga", True), ("user_ip", "{{ ip_name }}")]
+        params = self.declare_parameters(namespace="", parameters=param_list)
         fpga_out_topic, fpga_in_topic, program_fpga, user_ip = self.get_parameters([param.name for param in params])
         # Instantiate the FpgaDriver, program and setup the FPGA
         self.fpga = FpgaDriver(user_ip.value)
@@ -30,12 +24,12 @@ class FpgaNode(Node):
         self.fpga.setup_fpga()
 
         msg_module_str = "{{ prj_name }}_interface.msg"
-        self.FpgaIn = getattr(sys.modules[msg_module_str], "FpgaIn"+self.fpga.map_num_str)
-        self.FpgaOut = getattr(sys.modules[msg_module_str], "FpgaOut"+self.fpga.map_num_str)
+        self.FpgaIn = getattr(sys.modules[msg_module_str], "FpgaIn" + self.fpga.map_num_str)
+        self.FpgaOut = getattr(sys.modules[msg_module_str], "FpgaOut" + self.fpga.map_num_str)
         # Publish to the fpga_out_topic topic, message type is self.FpgaOut
-        self.publisher_ = self.create_publisher(self.FpgaOut, fpga_out_topic.value, {{ qos }})
+        self.publisher_ = self.create_publisher(self.FpgaOut, fpga_out_topic.value, {{qos}})
         # Subscribe to the fpga_in_topic topic, message type is self.FpgaIn
-        self.create_subscription(self.FpgaIn, fpga_in_topic.value, self.fpga_sub_callback, {{ qos }})
+        self.create_subscription(self.FpgaIn, fpga_in_topic.value, self.fpga_sub_callback, {{qos}})
 
     def fpga_pub_callback(self):
         msg = self.FpgaOut()
@@ -57,6 +51,7 @@ class FpgaNode(Node):
         # Call the publisher callback
         self.fpga_pub_callback()
 
+
 def main(args=None):
     rclpy.init(args=args)
 
@@ -67,6 +62,6 @@ def main(args=None):
     fpga_node.destroy_node()
     rclpy.shutdown()
 
-if __name__ == '__main__':
-    main()
 
+if __name__ == "__main__":
+    main()
