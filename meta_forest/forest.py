@@ -9,6 +9,7 @@ from jinja2 import Environment, FileSystemLoader
 
 package_installed_dir = os.path.dirname(os.path.abspath(__file__))
 
+
 def run_sys_cmd(cmd, cwd=None):
     # Helper function for running Linux commands
 
@@ -21,7 +22,10 @@ def process_msg_file(filename, io_map):
     # Generates the appropriate input and output ROS2 message files
     # given the user logic input and output signals
 
-    f = open(os.path.join(package_installed_dir, "output", "%s-int.msg" % filename), "w")
+    f = open(
+        os.path.join(package_installed_dir, "output", "%s-int.msg" % filename),
+        "w",
+    )
     for signal_name in io_map.keys():
         is_arr = io_map[signal_name]["arr"]
         signal_type = io_map[signal_name]["type"]
@@ -144,7 +148,9 @@ def render_int_package_xml(env, prj):
     # Render package.xml for the interface package
 
     package_xml = env.get_template("package-int.xml.jinja2")
-    f = open(os.path.join(package_installed_dir, "output", "package-int.xml"), "w")
+    f = open(
+        os.path.join(package_installed_dir, "output", "package-int.xml"), "w"
+    )
     f.write(package_xml.render(prj_name=prj))
     f.close()
 
@@ -153,12 +159,11 @@ def render_int_cmakelists_txt(env, prj, msg_files):
     # Render CMakeLists.txt for the interface package
 
     cmake_txt = env.get_template("CMakeLists-int.txt.jinja2")
-    f = open(os.path.join(package_installed_dir, "output", "CMakeLists-int.txt"), "w")
-    f.write(
-        cmake_txt.render(
-            prj_name=prj, msg_files=msg_files
-        )
+    f = open(
+        os.path.join(package_installed_dir, "output", "CMakeLists-int.txt"),
+        "w",
     )
+    f.write(cmake_txt.render(prj_name=prj, msg_files=msg_files))
     f.close()
 
 
@@ -166,7 +171,9 @@ def render_node_package_xml(env, prj):
     # Render package.xml for the node package
 
     package_xml = env.get_template("package-node.xml.jinja2")
-    f = open(os.path.join(package_installed_dir, "output", "package-node.xml"), "w")
+    f = open(
+        os.path.join(package_installed_dir, "output", "package-node.xml"), "w"
+    )
     f.write(package_xml.render(prj_name=prj))
     f.close()
 
@@ -175,7 +182,9 @@ def render_node_setup_py(env, prj, test_enabled):
     # Render setup.py for the node package
 
     setup_py = env.get_template("setup.py.jinja2")
-    f = open(os.path.join(package_installed_dir, "output", "setup-node.py"), "w")
+    f = open(
+        os.path.join(package_installed_dir, "output", "setup-node.py"), "w"
+    )
     f.write(setup_py.render(prj_name=prj, test_enabled=test_enabled))
     f.close()
 
@@ -184,7 +193,10 @@ def render_node_ros_fpga_lib_py(env, prj, bit_file):
     # Render ros_fpga_lib.py for the node package
 
     ros_fpga_lib_py = env.get_template("ros_fpga_lib.py.jinja2")
-    f = open(os.path.join(package_installed_dir, "output", "ros_fpga_lib-node.py"), "w")
+    f = open(
+        os.path.join(package_installed_dir, "output", "ros_fpga_lib-node.py"),
+        "w",
+    )
     f.write(ros_fpga_lib_py.render(prj_name=prj, bit_file=bit_file))
     f.close()
 
@@ -193,7 +205,9 @@ def render_node_fpga_node_py(env, prj, qos, head_ip_name):
     # Render fpga_node.py for the node package
 
     fpga_node_py = env.get_template("fpga_node.py.jinja2")
-    f = open(os.path.join(package_installed_dir, "output", "fpga_node-node.py"), "w")
+    f = open(
+        os.path.join(package_installed_dir, "output", "fpga_node-node.py"), "w"
+    )
     f.write(fpga_node_py.render(qos=qos, prj_name=prj, ip_name=head_ip_name))
     f.close()
 
@@ -203,7 +217,10 @@ def render_node_fpga_launch(env, prj, ip_names):
 
     launch_file_name = "fpga_node_launch.py"
     fpga_node_launch_py = env.get_template(launch_file_name + ".jinja2")
-    f = open(os.path.join(package_installed_dir, "output", "fpga_node_launch.py"), "w")
+    f = open(
+        os.path.join(package_installed_dir, "output", "fpga_node_launch.py"),
+        "w",
+    )
     f.write(fpga_node_launch_py.render(prj_name=prj, ip_names=ip_names))
     f.close()
 
@@ -212,7 +229,9 @@ def render_test_talker(env, prj, qos, ip_name):
     # Render the message generation file for the node package
 
     talker_py = env.get_template("talker.py.jinja2")
-    f = open(os.path.join(package_installed_dir, "output", "talker-node.py"), "w")
+    f = open(
+        os.path.join(package_installed_dir, "output", "talker-node.py"), "w"
+    )
     f.write(talker_py.render(prj_name=prj, qos=qos, ip_name=ip_name))
     f.close()
 
@@ -222,7 +241,9 @@ def render_test_talker_launch(env, prj, ip_map_nums):
 
     launch_file_name = "talker_launch.py"
     talker_launch_py = env.get_template(launch_file_name + ".jinja2")
-    f = open(os.path.join(package_installed_dir, "output", "talker_launch.py"), "w")
+    f = open(
+        os.path.join(package_installed_dir, "output", "talker_launch.py"), "w"
+    )
     f.write(talker_launch_py.render(prj_name=prj, ip_map_nums=ip_map_nums))
     f.close()
 
@@ -231,7 +252,9 @@ def render_test_listener(env, prj, qos, ip_name):
     # Render the message reader file for the node package
 
     listener_py = env.get_template("listener.py.jinja2")
-    f = open(os.path.join(package_installed_dir, "output", "listener-node.py"), "w")
+    f = open(
+        os.path.join(package_installed_dir, "output", "listener-node.py"), "w"
+    )
     f.write(listener_py.render(prj_name=prj, qos=qos, ip_name=ip_name))
     f.close()
 
@@ -241,7 +264,10 @@ def render_test_listener_launch(env, prj, ip_map_nums):
 
     launch_file_name = "listener_launch.py"
     listener_launch_py = env.get_template(launch_file_name + ".jinja2")
-    f = open(os.path.join(package_installed_dir, "output", "listener_launch.py"), "w")
+    f = open(
+        os.path.join(package_installed_dir, "output", "listener_launch.py"),
+        "w",
+    )
     f.write(listener_launch_py.render(prj_name=prj, ip_map_nums=ip_map_nums))
     f.close()
 
@@ -283,7 +309,8 @@ def create_msg_file(dev_ws, prj, map_num, in_map, out_map):
             + "src/"
             + pkg_name
             + "/msg/%s.msg" % fpga_in_msg
-        ],cwd=package_installed_dir
+        ],
+        cwd=package_installed_dir,
     )
     run_sys_cmd(
         [
@@ -360,7 +387,11 @@ def create_fpga_node_pkg(dev_ws, prj, test_enabled, io_maps):
             "cp "
             + os.path.join(output_dir, "setup-node.py")
             + " "
-            + dev_ws + "src/" + pkg_name + "/setup.py"]
+            + dev_ws
+            + "src/"
+            + pkg_name
+            + "/setup.py"
+        ]
     )
     # Copy modified node fpga_node.py
     run_sys_cmd(
@@ -558,7 +589,11 @@ def generate_config_forest(args):
         if "y" not in overwrite:
             exit(1)
     # Render config file template
-    env = Environment(loader=FileSystemLoader(os.path.join(package_installed_dir, "templates")))
+    env = Environment(
+        loader=FileSystemLoader(
+            os.path.join(package_installed_dir, "templates")
+        )
+    )
     render_config_file(env, len(args.input), args.input, args.output)
 
 
@@ -566,7 +601,11 @@ def generate_node(args):
 
     # Setup
 
-    env = Environment(loader=FileSystemLoader(os.path.join(package_installed_dir, "templates")))
+    env = Environment(
+        loader=FileSystemLoader(
+            os.path.join(package_installed_dir, "templates")
+        )
+    )
 
     prj = ""
     bit_file = ""
@@ -622,9 +661,7 @@ def generate_node(args):
             signal_name = value
         elif key == "Type":
             type_match = re.search(
-                r"(?P<type>[a-zA-Z]+)"
-                r"(?P<n_bits>\d+)",
-                value
+                r"(?P<type>[a-zA-Z]+)" r"(?P<n_bits>\d+)", value
             )
             # Do error handling
             if not type_match:
@@ -674,7 +711,9 @@ def generate_node(args):
         check_in_map_validity(io_map["input"])
         check_out_map_validity(io_map["output"])
 
-    output_dir_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output")
+    output_dir_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "output"
+    )
     if not os.path.exists(output_dir_path):
         os.makedirs(output_dir_path)
 
@@ -700,9 +739,7 @@ def generate_node(args):
         "msg/" + "FpgaOut" + str(map_num) + ".msg"
         for map_num in io_maps["maps"].keys()
     ]
-    render_int_cmakelists_txt(
-        env, prj, fpga_in_msg + fpga_out_msg
-    )
+    render_int_cmakelists_txt(env, prj, fpga_in_msg + fpga_out_msg)
 
     # Render node package.xml
     render_node_package_xml(env, prj)

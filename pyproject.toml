@@ -12,15 +12,18 @@ meta-forest = "meta_forest.forest:main"
 ignore = "E203,W503"
 
 [tool.black]
-target-version = ["py36", "py37", "py38"]
 line-length = 79
 
 [tool.isort]
 profile = "black"
 
 [tool.poetry.dependencies]
-python = "^3.6"
-Jinja2 = "^3.0.3"
+python = ">=3.6"
+MarkupSafe = [
+        { version = "<2.0", python = "3.6.*" },
+        { version = "^2.1", python = ">3.6" }
+]
+Jinja2 = "<3.1.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
