@@ -482,7 +482,7 @@ def generate_block_design(args):
                 "vivado project will be generated in "
                 "{}/{}".format(os.getcwd(), prj)
             )
-        elif key == "FPGA board name":
+        elif key == "FPGA board part":
             device_part = value
         elif key == "Absolute IP path":
             ip_path = value

@@ -1,49 +1,45 @@
-**** 1- Setup Information ****
+////////////////////////////////// How to write this file /////////////////////////////////
+// The "(a) meta-FOrEST Setup Configuration" is always required for meta-FOrEST to work. //
+//                                                                                       //
+// (1) When creating a Vivado block design,                                              //
+//     both (b) and (d) must be written.                                                 //
+//                                                                                       //
+// (2) When creating ROS2FPGA Nodes,                                                     //
+//     setting items (c)~(f) must all be written.                                        //
+//                                                                                       //
+///////////////////////////////////////////////////////////////////////////////////////////
 
+**** (a) meta-FOrEST Setup Configuration ****
 meta-FOrEST project name:
 
+**** (b) Vivado Project Configuration ****
 Absolute IP path:
+FPGA board part:
 
-FPGA board name:
-
+**** (c) ROS2FPGA Node Configuration ****
 Absolute ROS2 dev_ws path:
-
 Absolute FPGA .bit file path:
 
 {% for n_ip in range(n_ips) %}
-**** User IP {{ n_ip+1 }} definition ****
+**** (d) User IP {{ n_ip+1 }} definition ****
 // User IP {{ n_ip+1 }}
 User IP name:
 User IP count:
 
-**** User IP {{ n_ip+1 }}: Input definitions ****
-{% for i in range(n_in[n_ip]) %}
-// Input {{ i+1 }}
-
+**** (e) User IP {{ n_ip+1 }}: Input definitions ****
+{% for i in range(n_in[n_ip]) %}// Input {{ i+1 }}
 Input name:
-
 Protocol:
-
 Type:
-
 Use MultiArrayLayout: False
-
 Address Offset (if AXI-Lite):
-
 {% endfor %}
-**** User IP {{ n_ip+1 }}: Output definitions ****
-{% for i in range(n_out[n_ip]) %}
-// Output {{ i+1 }}
-
+**** (f) User IP {{ n_ip+1 }}: Output definitions ****
+{% for i in range(n_out[n_ip]) %}// Output {{ i+1 }}
 Output name:
-
 Protocol:
-
 Type:
-
 Use MultiArrayLayout: False
-
 Address Offset (if AXI-Lite):
-
 {% endfor %}
 {% endfor %}
