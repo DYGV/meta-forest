@@ -10,9 +10,11 @@ meta-forest = "meta_forest.forest:main"
 
 [tool.flake8]
 ignore = "E203,W503"
+exclude = "temp"
 
 [tool.black]
 line-length = 79
+exclude = "temp"
 
 [tool.isort]
 profile = "black"
