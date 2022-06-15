@@ -3,13 +3,14 @@ import json
 import logging
 import os
 import re
+import shutil
 import subprocess
 import sys
 
 from jinja2 import Environment, FileSystemLoader
 
 PACKAGE_INSTALLED_DIR = os.path.dirname(os.path.abspath(__file__))
-TEMPORARY_DIR = os.path.join(PACKAGE_INSTALLED_DIR, "temp")
+TEMPORARY_OUTPUT_DIR = os.path.join(PACKAGE_INSTALLED_DIR, "output")
 
 _logger_handler = logging.StreamHandler()
 _logger_handler.setFormatter(
@@ -33,7 +34,7 @@ def process_msg_file(filename, io_map):
     # given the user logic input and output signals
 
     f = open(
-        os.path.join(TEMPORARY_DIR, "%s-int.msg" % filename),
+        os.path.join(TEMPORARY_OUTPUT_DIR, "%s-int.msg" % filename),
         "w",
     )
     for signal_name in io_map.keys():
@@ -165,7 +166,7 @@ def render_int_package_xml(env, prj, depend_std_msgs):
     # Render package.xml for the interface package
 
     package_xml = env.get_template("package-int.xml.jinja2")
-    f = open(os.path.join(TEMPORARY_DIR, "package-int.xml"), "w")
+    f = open(os.path.join(TEMPORARY_OUTPUT_DIR, "package-int.xml"), "w")
     f.write(package_xml.render(prj_name=prj, depend_std_msgs=depend_std_msgs))
     f.close()
 
@@ -175,7 +176,7 @@ def render_int_cmakelists_txt(env, prj, msg_files, depend_std_msgs):
 
     cmake_txt = env.get_template("CMakeLists-int.txt.jinja2")
     f = open(
-        os.path.join(TEMPORARY_DIR, "CMakeLists-int.txt"),
+        os.path.join(TEMPORARY_OUTPUT_DIR, "CMakeLists-int.txt"),
         "w",
     )
     f.write(
@@ -190,7 +191,7 @@ def render_node_package_xml(env, prj):
     # Render package.xml for the node package
 
     package_xml = env.get_template("package-node.xml.jinja2")
-    f = open(os.path.join(TEMPORARY_DIR, "package-node.xml"), "w")
+    f = open(os.path.join(TEMPORARY_OUTPUT_DIR, "package-node.xml"), "w")
     f.write(package_xml.render(prj_name=prj))
     f.close()
 
@@ -199,7 +200,7 @@ def render_node_setup_py(env, prj, test_enabled):
     # Render setup.py for the node package
 
     setup_py = env.get_template("setup.py.jinja2")
-    f = open(os.path.join(TEMPORARY_DIR, "setup-node.py"), "w")
+    f = open(os.path.join(TEMPORARY_OUTPUT_DIR, "setup-node.py"), "w")
     f.write(setup_py.render(prj_name=prj, test_enabled=test_enabled))
     f.close()
 
@@ -209,7 +210,7 @@ def render_node_ros_fpga_lib_py(env, prj, bit_file):
 
     ros_fpga_lib_py = env.get_template("ros_fpga_lib.py.jinja2")
     f = open(
-        os.path.join(TEMPORARY_DIR, "ros_fpga_lib-node.py"),
+        os.path.join(TEMPORARY_OUTPUT_DIR, "ros_fpga_lib-node.py"),
         "w",
     )
     f.write(ros_fpga_lib_py.render(prj_name=prj, bit_file=bit_file))
@@ -220,7 +221,7 @@ def render_node_fpga_node_py(env, prj, qos, head_ip_name):
     # Render fpga_node.py for the node package
 
     fpga_node_py = env.get_template("fpga_node.py.jinja2")
-    f = open(os.path.join(TEMPORARY_DIR, "fpga_node-node.py"), "w")
+    f = open(os.path.join(TEMPORARY_OUTPUT_DIR, "fpga_node-node.py"), "w")
     f.write(fpga_node_py.render(qos=qos, prj_name=prj, ip_name=head_ip_name))
     f.close()
 
@@ -231,7 +232,7 @@ def render_node_fpga_launch(env, prj, ip_names):
     launch_file_name = "fpga_node_launch.py"
     fpga_node_launch_py = env.get_template(launch_file_name + ".jinja2")
     f = open(
-        os.path.join(TEMPORARY_DIR, "fpga_node_launch.py"),
+        os.path.join(TEMPORARY_OUTPUT_DIR, "fpga_node_launch.py"),
         "w",
     )
     f.write(fpga_node_launch_py.render(prj_name=prj, ip_names=ip_names))
@@ -242,7 +243,7 @@ def render_test_talker(env, prj, qos, ip_name):
     # Render the message generation file for the node package
 
     talker_py = env.get_template("talker.py.jinja2")
-    f = open(os.path.join(TEMPORARY_DIR, "talker-node.py"), "w")
+    f = open(os.path.join(TEMPORARY_OUTPUT_DIR, "talker-node.py"), "w")
     f.write(talker_py.render(prj_name=prj, qos=qos, ip_name=ip_name))
     f.close()
 
@@ -252,7 +253,7 @@ def render_test_talker_launch(env, prj, ip_map_nums):
 
     launch_file_name = "talker_launch.py"
     talker_launch_py = env.get_template(launch_file_name + ".jinja2")
-    f = open(os.path.join(TEMPORARY_DIR, "talker_launch.py"), "w")
+    f = open(os.path.join(TEMPORARY_OUTPUT_DIR, "talker_launch.py"), "w")
     f.write(talker_launch_py.render(prj_name=prj, ip_map_nums=ip_map_nums))
     f.close()
 
@@ -261,7 +262,7 @@ def render_test_listener(env, prj, qos, ip_name):
     # Render the message reader file for the node package
 
     listener_py = env.get_template("listener.py.jinja2")
-    f = open(os.path.join(TEMPORARY_DIR, "listener-node.py"), "w")
+    f = open(os.path.join(TEMPORARY_OUTPUT_DIR, "listener-node.py"), "w")
     f.write(listener_py.render(prj_name=prj, qos=qos, ip_name=ip_name))
     f.close()
 
@@ -272,7 +273,7 @@ def render_test_listener_launch(env, prj, ip_map_nums):
     launch_file_name = "listener_launch.py"
     listener_launch_py = env.get_template(launch_file_name + ".jinja2")
     f = open(
-        os.path.join(TEMPORARY_DIR, "listener_launch.py"),
+        os.path.join(TEMPORARY_OUTPUT_DIR, "listener_launch.py"),
         "w",
     )
     f.write(listener_launch_py.render(prj_name=prj, ip_map_nums=ip_map_nums))
@@ -304,19 +305,13 @@ def create_msg_file(dev_ws, prj, map_num, in_map, out_map):
     process_msg_file(fpga_out_msg, out_map)
 
     run_sys_cmd(["mkdir -p msg"], cwd=os.path.join(dev_ws, "src", pkg_name))
-    run_sys_cmd(
-        "cp {} {}".format(
-            os.path.join(TEMPORARY_DIR, "%s-int.msg" % fpga_in_msg),
-            os.path.join(dev_ws, "src", pkg_name, "msg", fpga_in_msg + ".msg"),
-        )
+    shutil.copy(
+        os.path.join(TEMPORARY_OUTPUT_DIR, "%s-int.msg" % fpga_in_msg),
+        os.path.join(dev_ws, "src", pkg_name, "msg", fpga_in_msg + ".msg"),
     )
-    run_sys_cmd(
-        "cp {} {}".format(
-            os.path.join(TEMPORARY_DIR, "%s-int.msg" % fpga_out_msg),
-            os.path.join(
-                dev_ws, "src", pkg_name, "msg", fpga_out_msg + ".msg"
-            ),
-        )
+    shutil.copy(
+        os.path.join(TEMPORARY_OUTPUT_DIR, "%s-int.msg" % fpga_out_msg),
+        os.path.join(dev_ws, "src", pkg_name, "msg", fpga_out_msg + ".msg"),
     )
 
 
@@ -325,18 +320,14 @@ def build_msg_pkg(dev_ws, prj):
 
     pkg_name = prj + "_interface"
     # Copy modified interface CMakeLists.txt
-    run_sys_cmd(
-        "cp {} {}".format(
-            os.path.join(TEMPORARY_DIR, "CMakeLists-int.txt"),
-            os.path.join(dev_ws, "src", pkg_name, "CMakeLists.txt"),
-        )
+    shutil.copy(
+        os.path.join(TEMPORARY_OUTPUT_DIR, "CMakeLists-int.txt"),
+        os.path.join(dev_ws, "src", pkg_name, "CMakeLists.txt"),
     )
     # Copy modified interface package.xml
-    run_sys_cmd(
-        "cp {} {}".format(
-            os.path.join(TEMPORARY_DIR, "package-int.xml"),
-            os.path.join(dev_ws, "src", pkg_name, "package.xml"),
-        )
+    shutil.copy(
+        os.path.join(TEMPORARY_OUTPUT_DIR, "package-int.xml"),
+        os.path.join(dev_ws, "src", pkg_name, "package.xml"),
     )
     _logger.info("Building the FPGA ROS2 node messages package")
     run_sys_cmd(["colcon build --packages-select " + pkg_name], cwd=dev_ws)
@@ -353,72 +344,54 @@ def create_fpga_node_pkg(dev_ws, prj, test_enabled, io_maps):
         cwd=os.path.join(dev_ws, "src"),
     )
     # Copy modified node package.xml
-    run_sys_cmd(
-        "cp {} {}".format(
-            os.path.join(TEMPORARY_DIR, "package-node.xml"),
-            os.path.join(dev_ws, "src", pkg_name, "package.xml"),
-        )
+    shutil.copy(
+        os.path.join(TEMPORARY_OUTPUT_DIR, "package-node.xml"),
+        os.path.join(dev_ws, "src", pkg_name, "package.xml"),
     )
     # Copy modified node setup.py
-    run_sys_cmd(
-        "cp {} {}".format(
-            os.path.join(TEMPORARY_DIR, "setup-node.py"),
-            os.path.join(dev_ws, "src", pkg_name, "setup.py"),
-        )
+    shutil.copy(
+        os.path.join(TEMPORARY_OUTPUT_DIR, "setup-node.py"),
+        os.path.join(dev_ws, "src", pkg_name, "setup.py"),
     )
     # Copy modified node fpga_node.py
-    run_sys_cmd(
-        "cp {} {}".format(
-            os.path.join(TEMPORARY_DIR, "fpga_node-node.py"),
-            os.path.join(dev_ws, "src", pkg_name, pkg_name, "fpga_node.py"),
-        )
+    shutil.copy(
+        os.path.join(TEMPORARY_OUTPUT_DIR, "fpga_node-node.py"),
+        os.path.join(dev_ws, "src", pkg_name, pkg_name, "fpga_node.py"),
     )
     # Copy modified node ros_fpga_lib.py
-    run_sys_cmd(
-        "cp {} {}".format(
-            os.path.join(TEMPORARY_DIR, "ros_fpga_lib-node.py"),
-            os.path.join(dev_ws, "src", pkg_name, pkg_name, "ros_fpga_lib.py"),
-        )
+    shutil.copy(
+        os.path.join(TEMPORARY_OUTPUT_DIR, "ros_fpga_lib-node.py"),
+        os.path.join(dev_ws, "src", pkg_name, pkg_name, "ros_fpga_lib.py"),
     )
     # Copy modified node fpga_node_launch .py
-    run_sys_cmd(["mkdir -p launch"], cwd=os.path.join(dev_ws, "src", pkg_name))
+    os.makedirs(os.path.join(dev_ws, "src", pkg_name, "launch"))
     launch_file_name = "fpga_node_launch.py"
-    run_sys_cmd(
-        "cp {} {}".format(
-            os.path.join(TEMPORARY_DIR, launch_file_name),
-            os.path.join(dev_ws, "src", pkg_name, "launch", launch_file_name),
-        )
+    shutil.copy(
+        os.path.join(TEMPORARY_OUTPUT_DIR, launch_file_name),
+        os.path.join(dev_ws, "src", pkg_name, "launch", launch_file_name),
     )
 
     # If running in test generation mode, copy the test nodes as well
     if test_enabled:
-        run_sys_cmd(
-            "cp {} {}".format(
-                os.path.join(TEMPORARY_DIR, "talker-node.py"),
-                os.path.join(dev_ws, "src", pkg_name, pkg_name, "talker.py"),
-            )
+        shutil.copy(
+            os.path.join(TEMPORARY_OUTPUT_DIR, "talker-node.py"),
+            os.path.join(dev_ws, "src", pkg_name, pkg_name, "talker.py"),
         )
-        run_sys_cmd(
-            "cp {} {}".format(
-                os.path.join(TEMPORARY_DIR, "listener-node.py"),
-                os.path.join(dev_ws, "src", pkg_name, pkg_name, "listener.py"),
-            )
+        shutil.copy(
+            os.path.join(TEMPORARY_OUTPUT_DIR, "listener-node.py"),
+            os.path.join(dev_ws, "src", pkg_name, pkg_name, "listener.py"),
         )
-        run_sys_cmd(
-            "cp {} {}".format(
-                os.path.join(TEMPORARY_DIR, "talker_launch.py"),
-                os.path.join(
-                    dev_ws, "src", pkg_name, "launch", "talker_launch.py"
-                ),
-            )
+        shutil.copy(
+            os.path.join(TEMPORARY_OUTPUT_DIR, "talker_launch.py"),
+            os.path.join(
+                dev_ws, "src", pkg_name, "launch", "talker_launch.py"
+            ),
         )
-        run_sys_cmd(
-            "cp {} {}".format(
-                os.path.join(TEMPORARY_DIR, "listener_launch.py"),
-                os.path.join(
-                    dev_ws, "src", pkg_name, "launch", "listener_launch.py"
-                ),
-            )
+        shutil.copy(
+            os.path.join(TEMPORARY_OUTPUT_DIR, "listener_launch.py"),
+            os.path.join(
+                dev_ws, "src", pkg_name, "launch", "listener_launch.py"
+            ),
         )
 
     io_maps_json = open(
@@ -509,7 +482,7 @@ def generate_config_forest(args):
 
     if os.path.isfile("config.forest"):
         overwrite = input(
-            "config.forest file already exists. " "Overwrite it? (y/n)"
+            "config.forest file already exists. " "Overwrite it? (y/n) "
         )
         if "y" not in overwrite:
             exit(1)
@@ -646,8 +619,8 @@ def generate_node(args):
         check_in_map_validity(io_map["input"])
         check_out_map_validity(io_map["output"])
 
-    if not os.path.exists(TEMPORARY_DIR):
-        os.makedirs(TEMPORARY_DIR)
+    if not os.path.exists(TEMPORARY_OUTPUT_DIR):
+        os.makedirs(TEMPORARY_OUTPUT_DIR)
 
     head_ip_name = next(iter(io_maps["map_num"]))
 
