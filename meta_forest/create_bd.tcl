@@ -431,7 +431,7 @@ if { ![info exists ips] } {
     exit
 }
 
-create_vivado_project $project_name [file dirname [info script]]
+create_vivado_project $project_name [pwd]
 setup_vivado_project $device_part $ips_directory $bd_file_name
 
 set PS [add_vivado_bd_ip_ps]
