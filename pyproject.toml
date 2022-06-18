@@ -10,22 +10,26 @@ meta-forest = "meta_forest.forest:main"
 
 [tool.flake8]
 ignore = "E203,W503"
-exclude = "temp"
+exclude = "output"
 
 [tool.black]
 line-length = 79
-exclude = "temp"
+exclude = "output"
 
 [tool.isort]
 profile = "black"
 
 [tool.poetry.dependencies]
-python = ">=3.6"
+python = ">=3.6.2"
 MarkupSafe = [
         { version = "<2.0", python = "3.6.*" },
         { version = "^2.1", python = ">3.6" }
 ]
 Jinja2 = "<3.1.0"
+
+[tool.poetry.dev-dependencies]
+black = ">=22.3"
+pyproject-flake8 = "^0.0.1-alpha.4"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
