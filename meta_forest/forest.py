@@ -29,7 +29,7 @@ def run_sys_cmd(cmd, cwd=None):
     )
 
 
-def process_msg_file(filename, io_map):
+def process_msg_file(filename, io_map, layout):
     # Generates the appropriate input and output ROS2 message files
     # given the user logic input and output signals
 
@@ -37,23 +37,24 @@ def process_msg_file(filename, io_map):
         os.path.join(TEMPORARY_OUTPUT_DIR, "%s-int.msg" % filename),
         "w",
     )
+    layout_name = "std_msgs/MultiArrayLayout layout\n"
+    ros2_type = ""
     for signal_name in io_map.keys():
         is_arr = io_map[signal_name]["arr"]
         signal_type = io_map[signal_name]["type"]
-        layout_name = io_map[signal_name]["layout_name"]
         num_bits = str(io_map[signal_name]["n_bits"])
         signed = io_map[signal_name]["signed"]
-        ros2_type = ""
-        if len(layout_name) > 0:
-            ros2_type = "std_msgs/MultiArrayLayout %s\n" % layout_name
+        if layout and layout_name not in ros2_type:
+            ros2_type += layout_name
         if not signed:
-            ros2_type = "u"
+            ros2_type += "u"
         ros2_type += signal_type
         ros2_type += num_bits
         if is_arr:
             n_elem = str(io_map[signal_name]["n_elem"])
             ros2_type += "[" + n_elem + "]"
-        f.write(ros2_type + " " + signal_name + "\n")
+        ros2_type += f" {signal_name}\n"
+    f.write(ros2_type)
     f.close()
 
 
@@ -69,7 +70,6 @@ def check_in_map_validity(in_map):
                 [
                     "protocol",
                     "type",
-                    "layout_name",
                     "n_bits",
                     "signed",
                     "arr",
@@ -80,18 +80,7 @@ def check_in_map_validity(in_map):
         ):
             _logger.error(
                 "Input map is not valid. Make sure the input"
-                "definition is correct. Error at signal {}".format(
-                    input_signal
-                )
-            )
-            sys.exit(1)
-        if (
-            not in_map[input_signal]["arr"]
-            and len(in_map[input_signal]["layout_name"]) > 0
-        ):
-            _logger.error(
-                "std_msgs/MultiArrayLayout "
-                "can be used when the type is an array."
+                f"definition is correct. Error at signal {input_signal}"
             )
             sys.exit(1)
         if in_map[input_signal]["protocol"] == "stream":
@@ -115,7 +104,6 @@ def check_out_map_validity(out_map):
                 [
                     "protocol",
                     "type",
-                    "layout_name",
                     "n_bits",
                     "signed",
                     "arr",
@@ -127,14 +115,14 @@ def check_out_map_validity(out_map):
             _logger.error(
                 "Output map is not valid. "
                 "Make sure the output definition is correct. "
-                "Error at signal {}".format(output_signal)
+                f"Error at signal {output_signal}"
             )
             sys.exit(1)
 
         if not out_map[output_signal]["arr"]:
             _logger.error(
                 "All output signals must be an array types "
-                "at signal {}".format(output_signal)
+                f"at signal {output_signal}"
             )
             sys.exit(1)
         if out_map[output_signal]["protocol"] == "stream":
@@ -296,22 +284,24 @@ def create_msg_pkg(dev_ws, prj):
     )
 
 
-def create_msg_file(dev_ws, prj, map_num, in_map, out_map):
+def create_msg_file(dev_ws, prj, map_num, in_map, out_map, layout):
     pkg_name = prj + "_interface"
     # Create the FPGA message files
     fpga_in_msg = "FpgaIn" + str(map_num)
     fpga_out_msg = "FpgaOut" + str(map_num)
-    process_msg_file(fpga_in_msg, in_map)
-    process_msg_file(fpga_out_msg, out_map)
+    process_msg_file(fpga_in_msg, in_map, layout)
+    process_msg_file(fpga_out_msg, out_map, layout)
 
-    run_sys_cmd(["mkdir -p msg"], cwd=os.path.join(dev_ws, "src", pkg_name))
+    msg_dir = os.path.join(dev_ws, "src", pkg_name, "msg")
+    if not os.path.exists(msg_dir):
+        os.makedirs(msg_dir)
     shutil.copy(
         os.path.join(TEMPORARY_OUTPUT_DIR, "%s-int.msg" % fpga_in_msg),
-        os.path.join(dev_ws, "src", pkg_name, "msg", fpga_in_msg + ".msg"),
+        os.path.join(msg_dir, fpga_in_msg + ".msg"),
     )
     shutil.copy(
         os.path.join(TEMPORARY_OUTPUT_DIR, "%s-int.msg" % fpga_out_msg),
-        os.path.join(dev_ws, "src", pkg_name, "msg", fpga_out_msg + ".msg"),
+        os.path.join(msg_dir, fpga_out_msg + ".msg"),
     )
 
 
@@ -364,11 +354,13 @@ def create_fpga_node_pkg(dev_ws, prj, test_enabled, io_maps):
         os.path.join(dev_ws, "src", pkg_name, pkg_name, "ros_fpga_lib.py"),
     )
     # Copy modified node fpga_node_launch .py
-    os.makedirs(os.path.join(dev_ws, "src", pkg_name, "launch"))
+    launch_dir = os.path.join(dev_ws, "src", pkg_name, "launch")
+    if not os.path.exists(launch_dir):
+        os.makedirs(launch_dir)
     launch_file_name = "fpga_node_launch.py"
     shutil.copy(
         os.path.join(TEMPORARY_OUTPUT_DIR, launch_file_name),
-        os.path.join(dev_ws, "src", pkg_name, "launch", launch_file_name),
+        os.path.join(launch_dir, launch_file_name),
     )
 
     # If running in test generation mode, copy the test nodes as well
@@ -383,15 +375,11 @@ def create_fpga_node_pkg(dev_ws, prj, test_enabled, io_maps):
         )
         shutil.copy(
             os.path.join(TEMPORARY_OUTPUT_DIR, "talker_launch.py"),
-            os.path.join(
-                dev_ws, "src", pkg_name, "launch", "talker_launch.py"
-            ),
+            os.path.join(launch_dir, "talker_launch.py"),
         )
         shutil.copy(
             os.path.join(TEMPORARY_OUTPUT_DIR, "listener_launch.py"),
-            os.path.join(
-                dev_ws, "src", pkg_name, "launch", "listener_launch.py"
-            ),
+            os.path.join(launch_dir, "listener_launch.py"),
         )
 
     io_maps_json = open(
@@ -406,18 +394,19 @@ def create_fpga_node_pkg(dev_ws, prj, test_enabled, io_maps):
 
 
 def create_vivado_bd(prj_name, device_part, ips_path, ips):
-    args = "-project_name {} -device_part {} -ips_directory {}".format(
-        prj_name, device_part, ips_path
+    args = (
+        f"-project_name {prj_name} "
+        f"-device_part {device_part} "
+        f"-ips_directory {ips_path} "
     )
-    args += " -auto_connect -write_bitstream -start_gui"
+    args += "-auto_connect -write_bitstream -start_gui"
     for name, count in ips.items():
-        args += " -ip {} {}".format(name, count)
+        args += f" -ip {name} {count}"
     run_sys_cmd(
         [
-            "vivado -nolog -nojournal -mode batch \
-            -source {} -tclargs {}".format(
-                os.path.join(PACKAGE_INSTALLED_DIR, "create_bd.tcl"), args
-            )
+            "vivado -nolog -nojournal -mode batch "
+            f"-source {os.path.join(PACKAGE_INSTALLED_DIR, 'create_bd.tcl')} "
+            f"-tclargs {args}"
         ]
     )
 
@@ -452,8 +441,7 @@ def generate_block_design(args):
         if key == "meta-FOrEST project name":
             prj += "_" + value
             _logger.info(
-                "vivado project will be generated in "
-                "{}/{}".format(os.getcwd(), prj)
+                "vivado project will be generated in " f"{os.getcwd()}/{prj}"
             )
         elif key == "FPGA board part":
             device_part = value
@@ -568,9 +556,8 @@ def generate_node(args):
             if not type_match:
                 _logger.error(
                     "Config file error. "
-                    "{} type not recognized at signal {} in {}".format(
-                        reading_direction, signal_name, ip_name
-                    )
+                    f"{reading_direction} type not recognized"
+                    f"at signal {signal_name} in {ip_name}"
                 )
                 sys.exit(1)
             n_elem_match = re.search(r".*?\[(\d+)\]", value)
@@ -589,13 +576,11 @@ def generate_node(args):
                 type_dict
             )
         elif key == "Use MultiArrayLayout":
-            layout_name = ""
+            use_multi_array = False
             if value.lower() == "true":
                 depend_std_msgs = True
-                layout_name = signal_name + "_layout"
-            io_maps["maps"][map_num][reading_direction][signal_name][
-                "layout_name"
-            ] = layout_name
+                use_multi_array = True
+            io_maps["maps"][map_num]["layout"] = use_multi_array
         elif key == "Protocol":
             io_maps["maps"][map_num][reading_direction][signal_name][
                 "protocol"
@@ -670,7 +655,12 @@ def generate_node(args):
     create_msg_pkg(dev_ws, prj)
     for map_num, io_map in io_maps["maps"].items():
         create_msg_file(
-            dev_ws, prj, map_num, io_map["input"], io_map["output"]
+            dev_ws,
+            prj,
+            map_num,
+            io_map["input"],
+            io_map["output"],
+            io_map["layout"],
         )
     build_msg_pkg(dev_ws, prj)
 

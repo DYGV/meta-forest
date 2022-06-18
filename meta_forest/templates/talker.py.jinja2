@@ -4,6 +4,7 @@ import rclpy
 from rclpy.node import Node
 from rosidl_runtime_py import get_interface_path
 from rosidl_adapter.parser import parse_message_file
+from std_msgs.msg import MultiArrayDimension
 
 from {{ prj_name }}_interface.msg import *
 
@@ -32,6 +33,11 @@ class TalkerNode(Node):
 
     def timer_callback(self):
         msg = self.FpgaIn()
+        if "std_msgs/MultiArrayLayout" in msg.get_fields_and_field_types().values():
+            test_dim = MultiArrayDimension()
+            test_dim.label = "test"
+            test_dim.size = 1
+            msg.layout.dim.append(test_dim)
         for field in self.message_spec.fields:
             if "int" in field.type.type:
                 msg = self.generate_pub_data(msg, field, random.randint, [0, 5])
