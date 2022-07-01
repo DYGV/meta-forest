@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project({{ prj_name }}_interface)
+project({{ params.project }})
 
 # Default to C99
 if(NOT CMAKE_C_STANDARD)
@@ -22,14 +22,14 @@ find_package(ament_cmake REQUIRED)
 # find_package(<dependency> REQUIRED)
 
 find_package(rosidl_default_generators REQUIRED)
-{%- if depend_std_msgs %}
+{%- if params.depend_std_msgs %}
 find_package(std_msgs REQUIRED)
 {%- endif %}
 rosidl_generate_interfaces(${PROJECT_NAME}
-    {%- for msg in msg_files %}
+    {%- for msg in params.msg_files %}
 	"{{ msg }}"
     {%- endfor %}
-    {%- if depend_std_msgs %}
+    {%- if params.depend_std_msgs %}
     DEPENDENCIES std_msgs
     {%- endif %}
 )

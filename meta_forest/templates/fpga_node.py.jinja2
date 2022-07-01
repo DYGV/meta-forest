@@ -8,13 +8,13 @@ from rclpy.node import Node
 from .ros_fpga_lib import *
 
 # Import the messages defined for the ROS FPGA Node interface
-from {{ prj_name }}_interface.msg import *
+from {{ params.project }}.msg import *
 
 # Define the FPGA Node class (has publisher and subscriber methods)
 class FpgaNode(Node):
     def __init__(self):
         super().__init__("fpga_node")
-        param_list = [("fpga_out_topic", "fpga_out_topic_{{ ip_name }}"), ("fpga_in_topic", "fpga_in_topic_{{ ip_name }}"), ("program_fpga", True), ("user_ip", "{{ ip_name }}")]
+        param_list = [("fpga_out_topic", "fpga_out_topic_{{ params.ip_name }}"), ("fpga_in_topic", "fpga_in_topic_{{ params.ip_name }}"), ("program_fpga", True), ("user_ip", "{{ params.ip_name }}")]
         params = self.declare_parameters(namespace="", parameters=param_list)
         fpga_out_topic, fpga_in_topic, program_fpga, user_ip = self.get_parameters([param.name for param in params])
         # Instantiate the FpgaDriver, program and setup the FPGA
@@ -23,13 +23,13 @@ class FpgaNode(Node):
             self.fpga.program_fpga()
         self.fpga.setup_fpga()
 
-        msg_module_str = "{{ prj_name }}_interface.msg"
+        msg_module_str = "{{ params.project }}.msg"
         self.FpgaIn = getattr(sys.modules[msg_module_str], "FpgaIn" + self.fpga.map_num_str)
         self.FpgaOut = getattr(sys.modules[msg_module_str], "FpgaOut" + self.fpga.map_num_str)
         # Publish to the fpga_out_topic topic, message type is self.FpgaOut
-        self.publisher_ = self.create_publisher(self.FpgaOut, fpga_out_topic.value, {{qos}})
+        self.publisher_ = self.create_publisher(self.FpgaOut, fpga_out_topic.value, {{ params.qos }})
         # Subscribe to the fpga_in_topic topic, message type is self.FpgaIn
-        self.create_subscription(self.FpgaIn, fpga_in_topic.value, self.fpga_sub_callback, {{qos}})
+        self.create_subscription(self.FpgaIn, fpga_in_topic.value, self.fpga_sub_callback, {{ params.qos }})
         self.msg = self.FpgaOut()
 
     def fpga_pub_callback(self):
@@ -52,7 +52,6 @@ class FpgaNode(Node):
         self.fpga.do_calc()
         # Call the publisher callback
         self.fpga_pub_callback()
-
 
 def main(args=None):
     rclpy.init(args=args)

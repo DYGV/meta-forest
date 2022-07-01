@@ -6,19 +6,19 @@ from rosidl_runtime_py import get_interface_path
 from rosidl_adapter.parser import parse_message_file
 from std_msgs.msg import MultiArrayDimension
 
-from {{ prj_name }}_interface.msg import *
+from {{ params.project }}.msg import *
 
 
 class TalkerNode(Node):
     def __init__(self):
         super().__init__("talker")
-        self.declare_parameter("fpga_in_topic", "fpga_in_topic_{{ ip_name }}")
+        self.declare_parameter("fpga_in_topic", "fpga_in_topic_{{ params.ip_name }}")
         self.declare_parameter("msg_type_suffix", "1")
         fpga_in_topic = self.get_parameter("fpga_in_topic").value
         msg_type_suffix = self.get_parameter("msg_type_suffix").value
-        self.FpgaIn = getattr(sys.modules["{{ prj_name }}_interface.msg"], "FpgaIn" + msg_type_suffix)
-        self.message_spec = parse_message_file("{{ prj_name }}_interface", get_interface_path("{{ prj_name }}_interface/msg/FpgaIn" + msg_type_suffix))
-        self.publisher_ = self.create_publisher(self.FpgaIn, fpga_in_topic, {{qos}})
+        self.FpgaIn = getattr(sys.modules["{{ params.project }}.msg"], "FpgaIn" + msg_type_suffix)
+        self.message_spec = parse_message_file("{{ params.project }}", get_interface_path("{{ params.project }}/msg/FpgaIn" + msg_type_suffix))
+        self.publisher_ = self.create_publisher(self.FpgaIn, fpga_in_topic, {{ params.qos }})
         timer_period = 2  # Frequency of publishing
         self.timer = self.create_timer(timer_period, self.timer_callback)
 
@@ -46,7 +46,6 @@ class TalkerNode(Node):
 
         self.publisher_.publish(msg)
         self.get_logger().info("Publishing: {}".format(msg))
-
 
 def main(args=None):
     rclpy.init(args=args)

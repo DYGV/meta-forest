@@ -2,19 +2,19 @@ import sys
 import rclpy
 from rclpy.node import Node
 
-from {{ prj_name }}_interface.msg import *
+from {{ params.project }}.msg import *
 
 
 class ListenerNode(Node):
     def __init__(self):
         super().__init__("listener")
-        self.declare_parameter("fpga_out_topic", "fpga_out_topic_{{ ip_name }}")
+        self.declare_parameter("fpga_out_topic", "fpga_out_topic_{{ params.ip_name }}")
         self.declare_parameter("msg_type_suffix", "1")
-        msg_module_str = "{{ prj_name }}_interface.msg"
+        msg_module_str = "{{ params.project }}.msg"
         msg_type_suffix = self.get_parameter("msg_type_suffix").value
         FpgaOut = getattr(sys.modules[msg_module_str], "FpgaOut" + msg_type_suffix)
         fpga_out_topic = self.get_parameter("fpga_out_topic").value
-        self.create_subscription(FpgaOut, fpga_out_topic, self.read_node_callback, {{qos}})
+        self.create_subscription(FpgaOut, fpga_out_topic, self.read_node_callback, {{ params.qos }})
 
     def read_node_callback(self, msg):
         self.get_logger().info("Received: {}".format(msg))

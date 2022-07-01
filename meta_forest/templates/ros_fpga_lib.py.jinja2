@@ -14,7 +14,7 @@ print = functools.partial(print, flush=True)
 class FpgaDriver:
     def __init__(self, user_ip):
         # FPGA bit file
-        self.bit_file = "{{ bit_file }}"
+        self.bit_file = "{{ params.bit_file }}"
         self.ovl = Overlay(self.bit_file, download=False)
         # User IP
         self.user_ip = user_ip
@@ -22,7 +22,7 @@ class FpgaDriver:
     def update_map(self, user_ip):
         if not user_ip:
             return
-        io_maps_json = open(get_package_share_directory("{{ prj_name }}_fpga_node") + "/io_maps.json", "r")
+        io_maps_json = open(get_package_share_directory("{{ params.project }}") + "/io_maps.json", "r")
         io_maps = json.load(io_maps_json)
         io_maps_json.close()
         self.map_num_str = str(io_maps["map_num"][user_ip])

@@ -17,6 +17,10 @@ proc setup_vivado_project {device_part ip_directory bd_name} {
     set_property target_language "Verilog" [current_project]
     set_property ip_repo_paths $ip_directory [current_fileset]
     update_ip_catalog
+    set ip_zip [glob [file join $ip_directory/*.zip]]
+    foreach ip $ip_zip {
+        update_ip_catalog -add_ip $ip -repo_path $ip_directory
+    }
     if { [string length [get_filesets -quiet sources_1]] == 0 } {
         create_fileset -srcset sources_1
     }
@@ -211,7 +215,7 @@ proc connect_axi_interconnect_gp_to_slave { } {
 
     set s_aximm_pins [get_bd_intf_pins \
             -of_objects [lsort -dictionary \
-                [get_bd_cells -filter { VLNV =~ "*:hls:*:*" || VLNV =~ "*:*:axi_dma:*"}]] \
+                [get_bd_cells -quiet -filter { VLNV =~ "*:hls:*:*" || VLNV =~ "*:*:axi_dma:*"}]] \
             -filter {MODE == Slave && CONFIG.Protocol == AXI4LITE}]
 
     set s_aximm_pins_len [llength $s_aximm_pins]
@@ -266,7 +270,7 @@ proc connect_axi_interconnect_hp_to_master { } {
     # Connect HP port and IP core master with AXI-Interconnect
 
     set m_axi_pins [get_bd_intf_pins -quiet \
-                    -of_objects [lsort -dictionary [get_bd_cells -filter { VLNV =~ "*:*:axi_dma:*"}]] \
+                    -of_objects [lsort -dictionary [get_bd_cells -quiet -filter { VLNV =~ "*:*:axi_dma:*"}]] \
                     -filter {MODE == Master && CONFIG.Protocol == AXI4}]
     set m_axi_pins_len [llength $m_axi_pins]
     if { $m_axi_pins_len == 0} {
@@ -326,11 +330,11 @@ proc connect_clk { } {
 }
 
 proc connect_rst { } {
-    set rst_ex_out [get_bd_pins -quiet -filter {DIR == O && TYPE == rst} -of_objects [get_bd_cells -filter {NAME !~ "*axi_dma*" && NAME !~ "*sys_rst*"}]]
+    set rst_ex_out [get_bd_pins -quiet -filter {DIR == O && TYPE == rst} -of_objects [get_bd_cells -quiet -filter {NAME !~ "*axi_dma*" && NAME !~ "*sys_rst*"}]]
     set rst_ex_in [get_bd_pins /sys_rst_0/ext_reset_in]
     connect_bd_net $rst_ex_out $rst_ex_in
 
-    set rst_in_list [get_bd_pins -quiet -filter {DIR == I && TYPE == rst} -of_objects [get_bd_cells -filter {NAME !~ "*sys_rst*"}]]
+    set rst_in_list [get_bd_pins -quiet -filter {DIR == I && TYPE == rst} -of_objects [get_bd_cells -quiet -filter {NAME !~ "*sys_rst*"}]]
     set rst_out [get_bd_pins /sys_rst_0/peripheral_aresetn]
     foreach rst_in $rst_in_list {
         connect_bd_net $rst_out $rst_in

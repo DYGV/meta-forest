@@ -6,7 +6,7 @@ authors = ["Eisuke Okazaki"]
 include = ["meta_forest/*"]
 
 [tool.poetry.scripts]
-meta-forest = "meta_forest.forest:main"
+meta-forest = "meta_forest.meta_forest:main"
 
 [tool.flake8]
 ignore = "E203,W503"
@@ -26,6 +26,7 @@ MarkupSafe = [
         { version = "^2.1", python = ">3.6" }
 ]
 Jinja2 = "<3.1.0"
+tomli = "1.2.3"
 
 [tool.poetry.dev-dependencies]
 black = ">=22.3"
