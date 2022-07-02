@@ -6,7 +6,7 @@ authors = ["Eisuke Okazaki"]
 include = ["meta_forest/*"]
 
 [tool.poetry.scripts]
-meta-forest = "meta_forest.meta_forest:main"
+meta-forest = "meta_forest.cli:main"
 
 [tool.flake8]
 ignore = "E203,W503"

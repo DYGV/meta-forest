@@ -1,6 +1,11 @@
+import logging
+import os
+
 import tomli
 
-from .logging_utils import _logger
+from .helper import render_to_template
+
+_logger = logging.getLogger("meta-FOrEST")
 
 
 class Params(object):
@@ -24,7 +29,19 @@ def get_render_params(args):
     return render_params
 
 
-def parse(file_path):
+def create_config_template(output_file_name, params, is_force):
+    _logger.info("Config file generation mode")
+    if os.path.isfile(output_file_name) and not is_force:
+        _logger.error(
+            "A config file already exists. "
+            "Delete a file that already exists or use --force"
+        )
+        return
+    if params is not None:
+        render_to_template("config.toml.jinja2", output_file_name, params)
+
+
+def load(file_path):
     toml_file = open(file_path, "rb")
     toml_dict = None
     try:

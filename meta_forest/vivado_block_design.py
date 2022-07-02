@@ -1,9 +1,11 @@
 import distutils.spawn
+import logging
 import os
 
 from . import config
 from .helper import PACKAGE_INSTALLED_DIR, run_sys_cmd
-from .logging_utils import _logger
+
+_logger = logging.getLogger("meta-FOrEST")
 
 
 def configure_params(config_dict):

@@ -1,11 +1,13 @@
 import json
+import logging
 import os
 import re
 import shutil
 
 from . import config
 from .helper import TEMPORARY_OUTPUT_DIR, render_to_template, run_sys_cmd
-from .logging_utils import _logger
+
+_logger = logging.getLogger("meta-FOrEST")
 
 
 def _build_io_maps(config_dict):
