@@ -1,7 +1,10 @@
 import argparse
 
-from . import meta_forest
 from ._version import __version__
+from .config import generate_config
+from .logging_utils import setup_logger
+from .ros_packages import generate_packages
+from .vivado_block_design import generate_block_design
 
 
 def _build_arg_parser():
@@ -54,7 +57,7 @@ def _build_gen_config_parser(parser):
         action="store_true",
         help="Force generation even if config file already exists",
     )
-    parser_gen_config.set_defaults(func=meta_forest.generate_config)
+    parser_gen_config.set_defaults(func=generate_config)
 
     return parser_gen_config
 
@@ -73,7 +76,7 @@ def _build_gen_block_design_parser(parser):
         default="config.toml",
         help="Name of toml file to input (Default: config.toml)",
     )
-    parser_block_design.set_defaults(func=meta_forest.generate_block_design)
+    parser_block_design.set_defaults(func=generate_block_design)
 
     return parser_block_design
 
@@ -99,7 +102,7 @@ def _build_gen_node_parser(parser):
         help="Generate simple talker and listener nodes \
         along with the FPGA ROS node",
     )
-    parser_gen_node.set_defaults(func=meta_forest.generate_node)
+    parser_gen_node.set_defaults(func=generate_packages)
     return parser_gen_node
 
 
@@ -111,7 +114,7 @@ def main():
         parser.print_help()
         return
 
-    meta_forest.setup(args)
+    setup_logger(args)
     args.func(args)
 
 

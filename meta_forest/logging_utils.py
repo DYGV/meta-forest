@@ -9,7 +9,7 @@ class Level(enum.Enum):
     error = logging.ERROR
 
 
-def setup_logger(log_level):
+def _setup_logger(log_level):
     level_value = Level[log_level].value
     logger_handler = logging.StreamHandler()
     logger_handler.setFormatter(
@@ -21,3 +21,7 @@ def setup_logger(log_level):
     logger.info(
         f"logging level was set to {logging.getLevelName(level_value)}"
     )
+
+
+def setup_logger(args):
+    _setup_logger(args.log_level)

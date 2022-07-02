@@ -59,8 +59,8 @@ def _depend_std_msgs(config_dict):
     )
 
 
-class Message:
-    def configure_params(self, config_dict):
+class MessagePackage:
+    def _configure_params(self, config_dict):
         params = config.Params()
         params.project = f"{config_dict['project']}_interface"
         params.dev_ws = config_dict["ROS2-FPGA"]["dev_ws"]
@@ -154,7 +154,7 @@ class Message:
             render_params,
         )
 
-    def create(self, params):
+    def _create(self, params):
         _logger.info("Generating the ROS2 package for the FPGA node messages")
         run_sys_cmd(
             ["ros2 pkg create --build-type ament_cmake " + params.project],
@@ -163,7 +163,7 @@ class Message:
         self._render(params)
         self._create_msg_file(params)
 
-    def build(self, params):
+    def _build(self, params):
         shutil.copy(
             os.path.join(TEMPORARY_OUTPUT_DIR, "CMakeLists-int.txt"),
             os.path.join(
@@ -181,11 +181,11 @@ class Message:
         )
 
 
-class Node:
-    def __init__(self, args):
-        self.args = args
+class NodePackage:
+    def __init__(self, test_node_enabled):
+        self.test_node_enabled = test_node_enabled
 
-    def configure_params(self, config_dict):
+    def _configure_params(self, config_dict):
         params = config.Params()
         params.project = f"{config_dict['project']}_fpga_node"
         params.project_interface = f"{config_dict['project']}_interface"
@@ -213,7 +213,10 @@ class Node:
         render_to_template(
             "setup.py.jinja2",
             os.path.join(TEMPORARY_OUTPUT_DIR, "setup-node.py"),
-            {"project": params.project, "test_enabled": self.args.test},
+            {
+                "project": params.project,
+                "test_enabled": self.test_node_enabled,
+            },
         )
 
         render_to_template(
@@ -241,7 +244,7 @@ class Node:
             },
         )
 
-        if not self.args.test:
+        if not self.test_node_enabled:
             return
 
         render_to_template(
@@ -282,7 +285,7 @@ class Node:
             },
         )
 
-    def create(self, params):
+    def _create(self, params):
         _logger.info("Generating the ROS2 package for the FPGA node")
         run_sys_cmd(
             ["ros2 pkg create --build-type ament_python " + params.project],
@@ -347,7 +350,7 @@ class Node:
         )
 
         # If running in test generation mode, copy the test nodes as well
-        if self.args.test:
+        if self.test_node_enabled:
             shutil.copy(
                 os.path.join(TEMPORARY_OUTPUT_DIR, "talker-node.py"),
                 os.path.join(
@@ -377,9 +380,25 @@ class Node:
                 os.path.join(launch_dir, "listener_launch.py"),
             )
 
-    def build(self, params):
+    def _build(self, params):
         _logger.info("Building the FPGA ROS2 node package")
         run_sys_cmd(
             ["colcon build --packages-select " + params.project],
             cwd=params.dev_ws,
         )
+
+
+def generate_packages(args):
+    config_dict = config.load(args.config)
+
+    message_package = MessagePackage()
+    node_package = NodePackage(args.test)
+
+    message_package_params = message_package._configure_params(config_dict)
+    node_package_params = node_package._configure_params(config_dict)
+
+    message_package._create(message_package_params)
+    node_package._create(node_package_params)
+
+    message_package._build(message_package_params)
+    node_package._build(node_package_params)

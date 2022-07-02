@@ -8,7 +8,7 @@ from .helper import PACKAGE_INSTALLED_DIR, run_sys_cmd
 _logger = logging.getLogger("meta-FOrEST")
 
 
-def configure_params(config_dict):
+def _configure_params(config_dict):
     params = config.Params()
     params.project = f"{config_dict['project']}_vivado"
     params.ip_directory = config_dict["Vivado"]["ip_directory"]
@@ -34,7 +34,7 @@ def _build_command(params):
     args += "-auto_connect -write_bitstream -start_gui"
     for name, count in zip(params.ip_name_list, params.ip_count_list):
         args += f" -ip {name} {count}"
-    tcl_script = os.path.join(PACKAGE_INSTALLED_DIR, "create_bd.tcl")
+    tcl_script = os.path.join(PACKAGE_INSTALLED_DIR, "vivado_block_design.tcl")
     command = (
         f"vivado -nolog -nojournal -mode batch "
         f"-source {tcl_script} -tclargs {args}"
@@ -42,7 +42,7 @@ def _build_command(params):
     return command
 
 
-def create(params):
+def _create(params):
     if not distutils.spawn.find_executable("vivado"):
         _logger.error("Vivado not found. Please setup Vivado")
         return
@@ -50,3 +50,9 @@ def create(params):
     _logger.info(f"Built the command: {command}")
     _logger.info("Making vivado block design")
     run_sys_cmd(command)
+
+
+def generate_block_design(args):
+    config_dict = config.load(args.config)
+    params = _configure_params(config_dict)
+    _create(params)

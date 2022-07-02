@@ -17,7 +17,7 @@ class Params(object):
         _logger.debug(f"{name}: {value}")
 
 
-def get_render_params(args):
+def _get_render_params(args):
     if not args.number_of_IPs > 0:
         _logger.error(
             "Specify the number of IP cores must be greater than or equal to 1"
@@ -29,7 +29,7 @@ def get_render_params(args):
     return render_params
 
 
-def create_config_template(output_file_name, params, is_force):
+def _write_to_config_template(output_file_name, params, is_force):
     _logger.info("Config file generation mode")
     if os.path.isfile(output_file_name) and not is_force:
         _logger.error(
@@ -50,3 +50,8 @@ def load(file_path):
         _logger.error(error)
     toml_file.close()
     return toml_dict
+
+
+def generate_config(args):
+    render_params = _get_render_params(args)
+    _write_to_config_template(args.config, render_params, args.force)
