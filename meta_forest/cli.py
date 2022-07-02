@@ -107,7 +107,7 @@ def main():
     parser = _build_arg_parser()
     args = parser.parse_args()
 
-    if not "func" in args:
+    if "func" not in args:
         parser.print_help()
         return
 
