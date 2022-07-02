@@ -1,11 +1,10 @@
 import argparse
-import sys
 
 from . import meta_forest
 from ._version import __version__
 
 
-def build_arg_parser():
+def _build_arg_parser():
     parser = argparse.ArgumentParser(prog="meta-forest")
     parser.add_argument(
         "-v", "--version", action="version", version=f"%(prog)s {__version__}"
@@ -21,14 +20,14 @@ def build_arg_parser():
 
     sub_parser = parser.add_subparsers()
 
-    build_gen_config_parser(sub_parser)
-    build_gen_block_design_parser(sub_parser)
-    build_gen_node_parser(sub_parser)
+    _build_gen_config_parser(sub_parser)
+    _build_gen_block_design_parser(sub_parser)
+    _build_gen_node_parser(sub_parser)
 
     return parser
 
 
-def build_gen_config_parser(parser):
+def _build_gen_config_parser(parser):
     parser_gen_config = parser.add_parser(
         "gen_config",
         help="Generate a template config file to be used meta-FOrEST",
@@ -60,7 +59,7 @@ def build_gen_config_parser(parser):
     return parser_gen_config
 
 
-def build_gen_block_design_parser(parser):
+def _build_gen_block_design_parser(parser):
     parser_block_design = parser.add_parser(
         "gen_block_design",
         help="Generate a Vivado block design \
@@ -79,7 +78,7 @@ def build_gen_block_design_parser(parser):
     return parser_block_design
 
 
-def build_gen_node_parser(parser):
+def _build_gen_node_parser(parser):
     parser_gen_node = parser.add_parser(
         "gen_node",
         help="Generate ROS2-FPGA Nodes \
@@ -105,15 +104,15 @@ def build_gen_node_parser(parser):
 
 
 def main():
-    parser = build_arg_parser()
+    parser = _build_arg_parser()
     args = parser.parse_args()
 
-    if len(sys.argv) < 2:
+    if not "func" in args:
         parser.print_help()
-        exit(1)
+        return
+
     meta_forest.setup(args)
-    if hasattr(args, "func"):
-        args.func(args)
+    args.func(args)
 
 
 if __name__ == "__main__":

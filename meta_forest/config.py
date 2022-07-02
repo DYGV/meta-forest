@@ -34,7 +34,7 @@ def create_config_template(output_file_name, params, is_force):
     if os.path.isfile(output_file_name) and not is_force:
         _logger.error(
             "A config file already exists. "
-            "Delete a file that already exists or use --force"
+            "Remove a file that already exists or use --force"
         )
         return
     if params is not None:
