@@ -5,9 +5,7 @@ import re
 import shutil
 
 from . import config
-from .helper import TEMPORARY_OUTPUT_DIR, render_to_template, run_sys_cmd
-
-_logger = logging.getLogger("meta-FOrEST")
+from .helpers import TEMPORARY_OUTPUT_DIR, render_to_template, run_sys_cmd
 
 
 def _build_io_maps(config_dict):
@@ -155,7 +153,6 @@ class MessagePackage:
         )
 
     def _create(self, params):
-        _logger.info("Generating the ROS2 package for the FPGA node messages")
         run_sys_cmd(
             ["ros2 pkg create --build-type ament_cmake " + params.project],
             cwd=os.path.join(params.dev_ws, "src"),
@@ -174,7 +171,6 @@ class MessagePackage:
             os.path.join(TEMPORARY_OUTPUT_DIR, "package-int.xml"),
             os.path.join(params.dev_ws, "src", params.project, "package.xml"),
         )
-        _logger.info("Building the FPGA ROS2 node messages package")
         run_sys_cmd(
             ["colcon build --packages-select " + params.project],
             cwd=params.dev_ws,
@@ -286,7 +282,6 @@ class NodePackage:
         )
 
     def _create(self, params):
-        _logger.info("Generating the ROS2 package for the FPGA node")
         run_sys_cmd(
             ["ros2 pkg create --build-type ament_python " + params.project],
             cwd=os.path.join(params.dev_ws, "src"),
@@ -381,7 +376,6 @@ class NodePackage:
             )
 
     def _build(self, params):
-        _logger.info("Building the FPGA ROS2 node package")
         run_sys_cmd(
             ["colcon build --packages-select " + params.project],
             cwd=params.dev_ws,
@@ -389,6 +383,7 @@ class NodePackage:
 
 
 def generate_packages(args):
+    logger = logging.getLogger("meta-FOrEST")
     config_dict = config.load(args.config)
 
     message_package = MessagePackage()
@@ -397,8 +392,14 @@ def generate_packages(args):
     message_package_params = message_package._configure_params(config_dict)
     node_package_params = node_package._configure_params(config_dict)
 
+    logger.info("Generating the ROS2 package for the FPGA node messages")
     message_package._create(message_package_params)
+
+    logger.info("Generating the ROS2 package for the FPGA node")
     node_package._create(node_package_params)
 
+    logger.info("Building the FPGA ROS2 node messages package")
     message_package._build(message_package_params)
+
+    logger.info("Building the FPGA ROS2 node package")
     node_package._build(node_package_params)

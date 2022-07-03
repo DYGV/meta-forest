@@ -1,0 +1,46 @@
+project = "project_1"
+
+[Vivado]
+ip_directory = ""
+board_part = ""
+
+[ROS2-FPGA]
+dev_ws = ""
+bitstream= ""
+
+[IP]
+  [IP.1]
+    name = ""
+    count = 1
+    use_multi_array_layout = false
+    [IP.1.IO]
+    signal_names = ["", ]
+    directions = ["", ]
+    types = ["", ]
+    protocols = ["", ]
+    # Specify appropriate address offset if axi-lite, otherwise -1
+    address_offsets = [-1, ]
+
+  [IP.2]
+    name = ""
+    count = 1
+    use_multi_array_layout = false
+    [IP.2.IO]
+    signal_names = ["", ]
+    directions = ["", ]
+    types = ["", ]
+    protocols = ["", ]
+    # Specify appropriate address offset if axi-lite, otherwise -1
+    address_offsets = [-1, ]
+
+  [IP.3]
+    name = ""
+    count = 1
+    use_multi_array_layout = false
+    [IP.3.IO]
+    signal_names = ["", ]
+    directions = ["", ]
+    types = ["", ]
+    protocols = ["", ]
+    # Specify appropriate address offset if axi-lite, otherwise -1
+    address_offsets = [-1, ]

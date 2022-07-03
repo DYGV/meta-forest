@@ -1,9 +1,10 @@
 import argparse
+import sys
 
-from ._version import __version__
 from .config import generate_config
 from .logging_utils import setup_logger
 from .ros_packages import generate_packages
+from .version import __version__
 from .vivado_block_design import generate_block_design
 
 
@@ -112,11 +113,7 @@ def main():
 
     if "func" not in args:
         parser.print_help()
-        return
+        sys.exit(1)
 
     setup_logger(args)
     args.func(args)
-
-
-if __name__ == "__main__":
-    main()
