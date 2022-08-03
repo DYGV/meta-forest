@@ -88,7 +88,8 @@ proc connect_master_to_slave_axis { dma_ip user_ip_axis_intr_pin_list } {
 }
 
 proc add_vivado_bd_ip_axi_interconnect { name_suffix } {
-    set interconnect_ip [create_bd_cell -type ip -vlnv xilinx.com:ip:axi_interconnect:2.1 "axi_interconnect_$name_suffix"]
+    set interconnect_vlnv [lindex [get_ipdefs -all xilinx.com:ip:axi_interconnect:* -filter {UPGRADE_VERSIONS == ""} ] 0]
+    set interconnect_ip [create_bd_cell -type ip -vlnv $interconnect_vlnv "axi_interconnect_$name_suffix"]
     set config [ list CONFIG.NUM_SI 1 CONFIG.NUM_MI 1 ]
     set_property -dict $config $interconnect_ip
     return $interconnect_ip
@@ -96,7 +97,8 @@ proc add_vivado_bd_ip_axi_interconnect { name_suffix } {
 
 proc add_vivado_bd_ip_axi_dma { axis_intf_pin_list } {
     set ip_list_len [llength [get_bd_cells -quiet -patterns "*axi_dma_*" ]]
-    set dma [create_bd_cell -type ip -vlnv xilinx.com:ip:axi_dma:7.1 "axi_dma_$ip_list_len"]
+    set dma_vlnv [lindex [get_ipdefs -all xilinx.com:ip:axi_dma:* -filter {UPGRADE_VERSIONS == ""} ] 0]
+    set dma [create_bd_cell -type ip -vlnv $dma_vlnv "axi_dma_$ip_list_len"]
     configure_axi_dma_ip $dma $axis_intf_pin_list
     connect_master_to_slave_axis $dma $axis_intf_pin_list
     return $dma
@@ -134,6 +136,7 @@ proc open_ps_hp { } {
         set HP "CONFIG.PCW_USE_S_AXI_HP0"
     } elseif { [string equal "zynquplus" $board_architecture] } {
         set HP "CONFIG.PSU__USE__S_AXI_GP2"
+        set_property "CONFIG.PSU__MAXIGP2__DATA_WIDTH" 128 $PS
     } else {
         return
     }
@@ -155,15 +158,15 @@ proc get_ps_port {} {
 proc add_vivado_bd_ip_ps { } {
     # Add Processing System IP core to the block design
 
-    set board_ps_defs {"zynq" {"processing_system7" "5.5"}
-                       "zynquplus" {"zynq_ultra_ps_e" "3.3"}
+    set board_ps_defs {"zynq" {"processing_system7"}
+                       "zynquplus" {"zynq_ultra_ps_e"}
     }
     set board_architecture [get_property architecture [get_property part [current_project]]]
     set board [dict get $board_ps_defs $board_architecture]
     set ps_name [lindex $board 0]
-    set ps_version [lindex $board 1]
 
-    set ps [create_bd_cell -type ip -vlnv xilinx.com:ip:$ps_name:$ps_version ${ps_name}_0]
+    set ps_vlnv [lindex [get_ipdefs -all xilinx.com:ip:${ps_name}:* -filter {UPGRADE_VERSIONS == ""} ] 0]
+    set ps [create_bd_cell -type ip -vlnv ${ps_vlnv} ${ps_name}_0]
 
     if { [string equal "zynq" $board_architecture]} {
         set config [list \
