@@ -4,7 +4,6 @@ import rclpy
 from rclpy.node import Node
 from rosidl_runtime_py import get_interface_path
 from rosidl_adapter.parser import parse_message_file
-from std_msgs.msg import MultiArrayDimension
 
 from {{ params.project }}.msg import *
 
@@ -12,13 +11,24 @@ from {{ params.project }}.msg import *
 class TalkerNode(Node):
     def __init__(self):
         super().__init__("talker")
-        self.declare_parameter("fpga_in_topic", "fpga_in_topic_{{ params.ip_name }}")
+        self.declare_parameter(
+            "fpga_in_topic", "fpga_in_topic_{{ params.ip_name }}"
+        )
         self.declare_parameter("msg_type_suffix", "1")
         fpga_in_topic = self.get_parameter("fpga_in_topic").value
         msg_type_suffix = self.get_parameter("msg_type_suffix").value
-        self.FpgaIn = getattr(sys.modules["{{ params.project }}.msg"], "FpgaIn" + msg_type_suffix)
-        self.message_spec = parse_message_file("{{ params.project }}", get_interface_path("{{ params.project }}/msg/FpgaIn" + msg_type_suffix))
-        self.publisher_ = self.create_publisher(self.FpgaIn, fpga_in_topic, {{ params.qos }})
+        self.FpgaIn = getattr(
+            sys.modules["{{ params.project }}.msg"], "FpgaIn" + msg_type_suffix
+        )
+        self.message_spec = parse_message_file(
+            "{{ params.project }}",
+            get_interface_path(
+                "{{ params.project }}/msg/FpgaIn" + msg_type_suffix
+            ),
+        )
+        self.publisher_ = self.create_publisher(
+            self.FpgaIn, fpga_in_topic, {{params.qos}}
+        )
         timer_period = 2  # Frequency of publishing
         self.timer = self.create_timer(timer_period, self.timer_callback)
 
@@ -33,19 +43,19 @@ class TalkerNode(Node):
 
     def timer_callback(self):
         msg = self.FpgaIn()
-        if "std_msgs/MultiArrayLayout" in msg.get_fields_and_field_types().values():
-            test_dim = MultiArrayDimension()
-            test_dim.label = "test"
-            test_dim.size = 1
-            msg.layout.dim.append(test_dim)
         for field in self.message_spec.fields:
             if "int" in field.type.type:
-                msg = self.generate_pub_data(msg, field, random.randint, [0, 5])
+                msg = self.generate_pub_data(
+                    msg, field, random.randint, [0, 5]
+                )
             elif "float" in field.type.type:
-                msg = self.generate_pub_data(msg, field, random.uniform, [0.0, 5.0])
+                msg = self.generate_pub_data(
+                    msg, field, random.uniform, [0.0, 5.0]
+                )
 
         self.publisher_.publish(msg)
         self.get_logger().info("Publishing: {}".format(msg))
+
 
 def main(args=None):
     rclpy.init(args=args)

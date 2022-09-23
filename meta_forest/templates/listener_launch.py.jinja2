@@ -10,9 +10,14 @@ def generate_launch_description():
                 package="{{ params.project }}",
                 node_executable="listener",
                 node_name="listener_%s" % ip_name,
-                parameters=[{"fpga_out_topic": "fpga_out_topic_%s" % ip_name, "msg_type_suffix": str(map_num)}],
+                parameters=[
+                    {
+                        "fpga_out_topic": "fpga_out_topic_%s" % ip_name,
+                        "msg_type_suffix": str(map_num),
+                    }
+                ],
                 output="screen",
             )
-            for ip_name, map_num in {{ params.ip_map_nums }}.items()
+            for ip_name, map_num in {{params.ip_map_nums}}.items()
         ]
     )

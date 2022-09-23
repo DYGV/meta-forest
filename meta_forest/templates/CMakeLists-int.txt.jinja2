@@ -22,16 +22,10 @@ find_package(ament_cmake REQUIRED)
 # find_package(<dependency> REQUIRED)
 
 find_package(rosidl_default_generators REQUIRED)
-{%- if params.depend_std_msgs %}
-find_package(std_msgs REQUIRED)
-{%- endif %}
 rosidl_generate_interfaces(${PROJECT_NAME}
     {%- for msg in params.msg_files %}
 	"{{ msg }}"
     {%- endfor %}
-    {%- if params.depend_std_msgs %}
-    DEPENDENCIES std_msgs
-    {%- endif %}
 )
 
 if(BUILD_TESTING)

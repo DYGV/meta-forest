@@ -45,15 +45,15 @@ def _build_io_maps(config_dict):
                 else 1
             )
             io_map["arr"] = n_elem_match is not None
-            io_maps["maps"][IP_num]["layout"] = IP["use_multi_array_layout"]
             io_maps["maps"][IP_num][direction][signal_name] = io_map
 
     return io_maps
 
 
-def _depend_std_msgs(config_dict):
-    return any(
-        [IP["use_multi_array_layout"] for IP in config_dict["IP"].values()]
+def build_packages_with_colcon(dev_ws, packages_list):
+    run_sys_cmd(
+        ["colcon build --packages-select " + " ".join(packages_list)],
+        cwd=dev_ws,
     )
 
 
@@ -62,7 +62,6 @@ class MessagePackage:
         params = config.Params()
         params.project = f"{config_dict['project']}_interface"
         params.dev_ws = config_dict["ROS2-FPGA"]["dev_ws"]
-        params.depend_std_msgs = _depend_std_msgs(config_dict)
         params.io_maps = _build_io_maps(config_dict)
         return params
 
@@ -77,25 +76,20 @@ class MessagePackage:
         return {
             "project": params.project,
             "msg_files": self._get_msg_files(params),
-            "depend_std_msgs": params.depend_std_msgs,
         }
 
     def _make_package_xml_params(self, params):
         return {
             "project": params.project,
-            "depend_std_msgs": params.depend_std_msgs,
         }
 
-    def _process_msg_file(self, filename, io_map, layout):
-        layout_name = "std_msgs/MultiArrayLayout layout\n"
+    def _process_msg_file(self, filename, io_map):
         ros2_type = ""
         for signal_name in io_map.keys():
             is_arr = io_map[signal_name]["arr"]
             signal_type = io_map[signal_name]["type"]
             num_bits = str(io_map[signal_name]["n_bits"])
             signed = io_map[signal_name]["signed"]
-            if layout and layout_name not in ros2_type:
-                ros2_type += layout_name
             if not signed:
                 ros2_type += "u"
             ros2_type += signal_type
@@ -116,15 +110,10 @@ class MessagePackage:
         if not os.path.exists(msg_dir):
             os.makedirs(msg_dir)
         for map_num, io_map in params.io_maps["maps"].items():
-            use_multi_array_layout = io_map["layout"]
             fpga_in_msg = f"FpgaIn{map_num}"
             fpga_out_msg = f"FpgaOut{map_num}"
-            self._process_msg_file(
-                fpga_in_msg, io_map["input"], use_multi_array_layout
-            )
-            self._process_msg_file(
-                fpga_out_msg, io_map["output"], use_multi_array_layout
-            )
+            self._process_msg_file(fpga_in_msg, io_map["input"])
+            self._process_msg_file(fpga_out_msg, io_map["output"])
 
             shutil.copy(
                 os.path.join(TEMPORARY_OUTPUT_DIR, f"{fpga_in_msg}-int.msg"),
@@ -153,14 +142,19 @@ class MessagePackage:
         )
 
     def _create(self, params):
+        src_dir = os.path.join(params.dev_ws, "src")
+
+        if not os.path.exists(src_dir):
+            os.makedirs(src_dir)
+
         run_sys_cmd(
             ["ros2 pkg create --build-type ament_cmake " + params.project],
-            cwd=os.path.join(params.dev_ws, "src"),
+            cwd=src_dir,
         )
+
         self._render(params)
         self._create_msg_file(params)
 
-    def _build(self, params):
         shutil.copy(
             os.path.join(TEMPORARY_OUTPUT_DIR, "CMakeLists-int.txt"),
             os.path.join(
@@ -170,10 +164,6 @@ class MessagePackage:
         shutil.copy(
             os.path.join(TEMPORARY_OUTPUT_DIR, "package-int.xml"),
             os.path.join(params.dev_ws, "src", params.project, "package.xml"),
-        )
-        run_sys_cmd(
-            ["colcon build --packages-select " + params.project],
-            cwd=params.dev_ws,
         )
 
 
@@ -187,7 +177,6 @@ class NodePackage:
         params.project_interface = f"{config_dict['project']}_interface"
         params.dev_ws = config_dict["ROS2-FPGA"]["dev_ws"]
         params.bit_file = config_dict["ROS2-FPGA"]["bitstream"]
-        params.depend_std_msgs = _depend_std_msgs(config_dict)
         params.io_maps = _build_io_maps(config_dict)
         params.qos = 10
         params.head_ip_name = next(iter(params.io_maps["map_num"]))
@@ -282,10 +271,16 @@ class NodePackage:
         )
 
     def _create(self, params):
+        src_dir = os.path.join(params.dev_ws, "src")
+
+        if not os.path.exists(src_dir):
+            os.makedirs(src_dir)
+
         run_sys_cmd(
             ["ros2 pkg create --build-type ament_python " + params.project],
-            cwd=os.path.join(params.dev_ws, "src"),
+            cwd=src_dir,
         )
+
         self._render(params)
         io_maps_json = open(
             os.path.join(
@@ -375,12 +370,6 @@ class NodePackage:
                 os.path.join(launch_dir, "listener_launch.py"),
             )
 
-    def _build(self, params):
-        run_sys_cmd(
-            ["colcon build --packages-select " + params.project],
-            cwd=params.dev_ws,
-        )
-
 
 def generate_packages(args):
     logger = logging.getLogger("meta-FOrEST")
@@ -398,8 +387,8 @@ def generate_packages(args):
     logger.info("Generating the ROS2 package for the FPGA node")
     node_package._create(node_package_params)
 
-    logger.info("Building the FPGA ROS2 node messages package")
-    message_package._build(message_package_params)
-
-    logger.info("Building the FPGA ROS2 node package")
-    node_package._build(node_package_params)
+    logger.info("Building the ROS2 packages")
+    build_packages_with_colcon(
+        config_dict["ROS2-FPGA"]["dev_ws"],
+        [message_package_params.project, node_package_params.project],
+    )

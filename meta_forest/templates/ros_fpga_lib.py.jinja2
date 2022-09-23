@@ -1,5 +1,7 @@
+import fnmatch
 import functools
 import json
+import re
 import struct
 import time
 
@@ -7,8 +9,7 @@ import numpy as np
 import pynq.lib.dma
 from ament_index_python.packages import get_package_share_directory
 from pynq import MMIO, Overlay, allocate
-
-print = functools.partial(print, flush=True)
+from pynq.pl_server import hwh_parser
 
 
 class FpgaDriver:
@@ -22,7 +23,10 @@ class FpgaDriver:
     def update_map(self, user_ip):
         if not user_ip:
             return
-        io_maps_json = open(get_package_share_directory("{{ params.project }}") + "/io_maps.json", "r")
+        io_maps_json = open(
+            get_package_share_directory("{{ params.project }}") + "/io_maps.json",
+            "r",
+        )
         io_maps = json.load(io_maps_json)
         io_maps_json.close()
         self.map_num_str = str(io_maps["map_num"][user_ip])
@@ -35,18 +39,17 @@ class FpgaDriver:
         self.has_axis_in = self.has_axis(self.in_map)
         self.has_axis_out = self.has_axis(self.out_map)
         if self.has_axis_in or self.has_axis_out:
-            import fnmatch
-            import re
-            from pynq.pl_server import hwh_parser
+            self.dma_name = self.find_dma_ip_name()
 
-            hwh_file = hwh_parser.get_hwh_name(self.bit_file)
-            hwh = hwh_parser.HWH(hwh_file)
-            pins = fnmatch.filter(hwh.pins.keys(), "{}/*TDATA".format(self.user_ip))
-            for pin in pins:
-                dma_match = re.search(r"axi_dma_\d+", hwh.pins[pin])
-                if dma_match is not None:
-                    self.dma_name = dma_match.group()
-                    break
+    def find_dma_ip_name(self):
+        hwh_file = hwh_parser.get_hwh_name(self.bit_file)
+        hwh = hwh_parser.HWH(hwh_file)
+        pins = fnmatch.filter(hwh.pins.keys(), "{}/*TDATA".format(self.user_ip))
+        for pin in pins:
+            dma_match = re.search(r"axi_dma_\d+", hwh.pins[pin])
+            if dma_match is not None:
+                return dma_match.group()
+                
 
     @property
     def user_ip(self):
@@ -56,14 +59,6 @@ class FpgaDriver:
     def user_ip(self, ip_name):
         self.__user_ip = ip_name
         self.update_map(ip_name)
-
-    def reg_write(self, offset, data):
-        print("reg_write(0x{:04X}, 0x{:08X})".format(offset, data))
-        mmio_axi32.write(offset, data)
-
-    def reg_read(self, offset):
-        rd = mmio_axi32.read(offset)
-        print("reg_read(0x{:04X}) --> 0x{:08X}".format(offset, rd))
 
     def program_fpga(self):
         # Program the FPGA and set the Overlay
@@ -93,24 +88,29 @@ class FpgaDriver:
         return has_axis
 
     def allocate_dma_buffer(self, io_map):
+        signal_type = ""
+        n_bits = 0
+        arr_size = 0
         for signal_name in io_map.keys():
             if io_map[signal_name]["protocol"] == "stream":
                 signal_type = io_map[signal_name]["type"]
                 n_bits = io_map[signal_name]["n_bits"]
                 arr_size = io_map[signal_name]["n_elem"]
-                # case 1 - int32
-                if signal_type == "int" and n_bits == 32:
-                    allocated_buffer = allocate(shape=(arr_size,), dtype=np.int32)
-                # case 2 - uint8
-                if signal_type == "int" and n_bits == 8:
-                    allocated_buffer = allocate(shape=(arr_size,), dtype=np.uint8)
-                # case 3 - uint64
-                if signal_type == "int" and n_bits == 64:
-                    allocated_buffer = allocate(shape=(arr_size,), dtype=np.uint64)
-                # case 4 - float32
-                if signal_type == "float" and n_bits == 32:
-                    allocated_buffer = allocate(shape=(arr_size,), dtype=np.float32)
-                return allocated_buffer
+                break
+
+        # case 1 - int32
+        if signal_type == "int" and n_bits == 32:
+            allocated_buffer = allocate(shape=(arr_size,), dtype=np.int32)
+        # case 2 - uint8
+        if signal_type == "int" and n_bits == 8:
+            allocated_buffer = allocate(shape=(arr_size,), dtype=np.uint8)
+        # case 3 - uint64
+        if signal_type == "int" and n_bits == 64:
+            allocated_buffer = allocate(shape=(arr_size,), dtype=np.uint64)
+        # case 4 - float32
+        if signal_type == "float" and n_bits == 32:
+            allocated_buffer = allocate(shape=(arr_size,), dtype=np.float32)
+        return allocated_buffer
 
     def process_input(self, signal_name, msg):
         # Receive the value from the msg and send it to the FPGA
@@ -179,10 +179,7 @@ class FpgaDriver:
                         self.mmio.write(addr + 4, ieee_rep_hi)
 
         elif protocol == "stream":
-            data_size_in = self.in_map[signal_name]["n_elem"]
-
-            for i in range(data_size_in):
-                self.input_buffer[i] = msg[i]
+            self.input_buffer[:] = msg[:]
 
     def process_output(self, signal_name):
         # Read the value from the FPGA and return it in a format that can be assigned to a msg
@@ -235,7 +232,6 @@ class FpgaDriver:
                         return val
 
         elif protocol == "stream":
-
             data_size_out = self.out_map[signal_name]["n_elem"]
             if self.out_map[signal_name]["n_bits"] == 64:
                 val = np.zeros((data_size_out,), dtype=np.uint64)
@@ -243,15 +239,7 @@ class FpgaDriver:
                 val = np.zeros((data_size_out,), dtype=np.float32)
             else:
                 val = [0] * data_size_out
-
-            for i in range(data_size_out):
-                if self.out_map[signal_name]["n_bits"] == 64:  # uint64
-                    val[i] = self.output_buffer[i]
-                elif signal_type == "float":  # float32
-                    val[i] = self.output_buffer[i]
-                else:
-                    val[i] = int(self.output_buffer[i])
-
+            val[:] = self.output_buffer[:]
             return val
 
     def setup_dma_buffers(self):
