@@ -9,7 +9,7 @@ pip3 install git+https://github.com/DYGV/meta-forest
 ```
 
 ## Usage
-meta-FOrEST has several subcommands. Run `meta-forest --help`, to see available subcommands and their options.   
+meta-FOrEST has several subcommands. Run `meta-forest --help` to see available subcommands and their options.   
 
 ```
 $ meta-forest --help
