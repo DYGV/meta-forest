@@ -1,6 +1,7 @@
 import fnmatch
 import functools
 import json
+import logging
 import re
 import struct
 import time
@@ -14,11 +15,22 @@ from pynq.pl_server import hwh_parser
 
 class FpgaDriver:
     def __init__(self, user_ip):
+        self.logger = logging.getLogger("PYNQ-Driver")
+        logger_handler = logging.StreamHandler()
+        logger_handler.setFormatter(
+            logging.Formatter("[%(levelname)s] [%(name)s]: %(message)s")
+        )
+        self.logger.addHandler(logger_handler)
+
         # FPGA bit file
         self.bit_file = "{{ params.bit_file }}"
         self.ovl = Overlay(self.bit_file, download=False)
+        self.ovl.is_loaded = self.is_loaded
         # User IP
         self.user_ip = user_ip
+
+    def is_loaded(self):
+        return True
 
     def update_map(self, user_ip):
         if not user_ip:
@@ -62,17 +74,17 @@ class FpgaDriver:
 
     def program_fpga(self):
         # Program the FPGA and set the Overlay
-        print("Downloading bit file {}...".format(self.bit_file))
+        self.logger.info(f"Downloading bit file {self.bit_file}...")
         self.ovl.download()
-        print("Bit file downloaded")
+        self.logger.info("Bit file downloaded")
 
     def setup_fpga(self):
         # Set the MMIO and DMA classes
         regs = self.ovl.ip_dict[self.user_ip]
         phys_addr = regs["phys_addr"]
         addr_range = regs["addr_range"]
-        print("User IP phys_addr = 0x{:X}".format(phys_addr))
-        print("User IP addr_range = {}".format(addr_range))
+        self.logger.info("User IP phys_addr = 0x{:X}".format(phys_addr))
+        self.logger.info("User IP addr_range = {}".format(addr_range))
         self.mmio = MMIO(phys_addr, addr_range)
         if self.has_axis_in or self.has_axis_out:
             self.dma = getattr(self.ovl, self.dma_name)
