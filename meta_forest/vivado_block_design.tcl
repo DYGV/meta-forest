@@ -396,13 +396,16 @@ while { $seeking_index < $argc } {
             incr seeking_index
         }
         -auto_connect {
-            set auto_connect 1
+            set auto_connect [lindex $argv $seeking_index]
+            incr seeking_index
         }
         -write_bitstream {
-            set write_bitstream 1
+            set write_bitstream [lindex $argv $seeking_index]
+            incr seeking_index
         }
         -start_gui {
-            set start_gui 1
+            set start_gui [lindex $argv $seeking_index]
+            incr seeking_index
         }
         -ip {
             # Name and number of IP cores to be added to the block design

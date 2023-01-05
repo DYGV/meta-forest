@@ -13,9 +13,14 @@ def _configure_params(project_settings_dict, config_dict):
     params.ip_directory = os.path.join(project_settings_dict["project_path"], "ip")
     params.board_part = project_settings_dict["target_part"]
 
+    vivado_block_design = project_settings_dict["vivado_block_design"]
+    params.auto_start_gui = vivado_block_design["auto_start_gui"] 
+    params.auto_connect_block_design = vivado_block_design["auto_connect_block_design"]
+    params.to_step_write_bitstream = vivado_block_design["to_step_write_bitstream"]
+
     ip_name_list = []
     ip_count_list = []
-    for k, v in config_dict.items():
+    for k,v in config_dict.items():
         name = k
         count = v[0]["count"]
         if len(name) > 0 and count > 0:
@@ -32,8 +37,10 @@ def _build_command(params):
         f"-project_name {params.project} "
         f"-device_part {params.board_part} "
         f"-ips_directory {params.ip_directory} "
+        f"-start_gui {params.auto_start_gui} "
+        f"-auto_connect {params.auto_connect_block_design} "
+        f"-write_bitstream {params.to_step_write_bitstream} "
     )
-    args += "-auto_connect -write_bitstream -start_gui"
     if len(params.ip_name_list) == 0 or len(params.ip_count_list) == 0:
         return -1
     if len(params.ip_name_list) != len(params.ip_count_list):
@@ -42,15 +49,16 @@ def _build_command(params):
         args += f" -ip {name} {count}"
     tcl_script = os.path.join(PACKAGE_INSTALLED_DIR, "vivado_block_design.tcl")
     command = (
-        f"vivado -nolog -nojournal -mode batch -source {tcl_script} -tclargs {args}"
+        f"vivado -nolog -nojournal -mode batch "
+        f"-source {tcl_script} -tclargs {args}"
     )
     return command
-
 
 def package_rtl(solution_path):
     tcl_script = os.path.join(PACKAGE_INSTALLED_DIR, "package_rtl.tcl")
     return f"vitis_hls {tcl_script} {solution_path}"
 
+    
 
 def generate_block_design(args):
     logger = logging.getLogger("meta-FOrEST")
