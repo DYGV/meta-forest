@@ -1,12 +1,13 @@
 # meta-FOrEST
+<img src="https://user-images.githubusercontent.com/8480644/210734598-63b3e675-0ca1-4d08-b015-bb0e0ec21a56.png" width="60%" height="60%">  
+
 **meta-FOrEST** is an automatic generation tool for multiple ROS2-FPGA nodes. meta-FOrEST is developed based on [FOrEST](https://github.com/ros2-forest/forest).  
 Currently, meta-FOrEST has the following features:  
 - [x] Multiple ROS2-FPGA Nodes Generation  
 - [x] Automatic Generation of a Vivado Block Design with multiple IP cores from a Vitis HLS project  
 - [x] Semi-Automatic Configuration file description (Advanced version of a file like FOrEST's config.forset)
 
-The following image shows the configuration of a system that meta-FOrEST can generate:  
-<img src="https://user-images.githubusercontent.com/8480644/210734598-63b3e675-0ca1-4d08-b015-bb0e0ec21a56.png" width="60%" height="60%">
+
 ## Installation
 
 ```
