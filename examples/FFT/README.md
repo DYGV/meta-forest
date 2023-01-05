@@ -50,7 +50,7 @@ Before proceeding to the next step, place the Bitstream and hwh files directly u
 cp vivado/vivado.runs/impl_1/design_1_wrapper.bit ./1024-fft-2.bit
 cp vivado/vivado.gen/sources_1/bd/design_1/hw_handoff/design_1.hwh ./1024-fft-2.hwh
 ```  
-And, in many cases, it is better to do this step on the FPGA board to avoid version differences.This is an example of using the `rsync` command to transfer only the necessary files to a remote FPGA board: 
+And, in many cases, it is better to do next step on the FPGA board to avoid version differences.This is an example of using the `rsync` command to transfer only the necessary files to a remote FPGA board: 
 ```
 rsync -arv --exclude '*.log' --exclude 'ip/' --exclude 'vivado/' --exclude '.Xil' ./ xilinx@pynqz1:/home/xilinx/project_1
 ```
