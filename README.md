@@ -6,7 +6,7 @@ Currently, meta-FOrEST has the following features:
 - [x] Semi-Automatic Configuration file description (Advanced version of a file like FOrEST's config.forset)
 
 The following image shows the configuration of a system that meta-FOrEST can generate:  
-<img src="https://user-images.githubusercontent.com/8480644/210734598-63b3e675-0ca1-4d08-b015-bb0e0ec21a56.png" width="50%" height="50%">
+<img src="https://user-images.githubusercontent.com/8480644/210734598-63b3e675-0ca1-4d08-b015-bb0e0ec21a56.png" width="60%" height="60%">
 ## Installation
 
 ```
@@ -17,8 +17,10 @@ pip3 install git+https://github.com/DYGV/meta-forest
 ## Usage
 ### Tutorials
 You can learn how to use meta-FOrEST through examples.
-- Simple Tutorial: vector-add-axi4lite (TODO)
-- Advanced Tutorial: [Multiple FFT Process as ROS2-FPGA](./examples/FFT)
+- Simple Tutorial:
+  - [simple-add](./examples/simple-add) (WIP)
+  - [vector-add-lite](./examples/vector-add-lite) (WIP)
+- Advanced Tutorial: [Fast Fourier Transform](./examples/FFT)
  
 ### Caution
 The types available for meta-FOrEST are the same as for [FOrEST's type support](https://github.com/ros2-forest/forest/tree/master/docs/tutorials#type-support).  
