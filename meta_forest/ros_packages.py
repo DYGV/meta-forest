@@ -35,7 +35,6 @@ def _build_io_maps(config_dict):
             io_map["n_elem"] = int(signal["array_size"])
             io_map["arr"] = signal["is_array"]
             io_maps["maps"][ip_num][direction][signal_name] = io_map
-    print(io_maps)
     return io_maps
 
 

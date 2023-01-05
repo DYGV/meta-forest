@@ -128,7 +128,10 @@ def parse_solution_file(path):
             signal.address_offset = find_address_offset(signal.name, constraints)
             for array_signal_name, array_size in array_size_dict.items():
                 if array_signal_name == signal.name:
-                    signal.array_size = array_size
+                    if signal.direction == "out" and array_size == 0:
+                        signal.array_size = 1
+                    else:
+                        signal.array_size = array_size
         primitive_type_match = find_cpp_primitive_type(arg_detail["srcType"])
         if primitive_type_match:
             signal.is_unsigned = primitive_type_match[0]
