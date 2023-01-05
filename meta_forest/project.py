@@ -95,9 +95,11 @@ def load_project_file(path):
     file = open(os.path.join(path, ".project.json"))
     return json.load(file)
 
+
 def load_config_file(path):
     file = open(os.path.join(path, "config.json"))
     return json.load(file)
+
 
 def parse_solution_file(path):
     json_file_name = f"{os.path.basename(path)}_data.json"
@@ -123,9 +125,7 @@ def parse_solution_file(path):
         signal.data_width = int(interface["dataWidth"])
         if signal.protocol == "axi4lite":
             constraints = interface["constraints"]
-            signal.address_offset = find_address_offset(
-                signal.name, constraints
-            )
+            signal.address_offset = find_address_offset(signal.name, constraints)
             for array_signal_name, array_size in array_size_dict.items():
                 if array_signal_name == signal.name:
                     signal.array_size = array_size
@@ -145,11 +145,16 @@ def parse_solution_file(path):
             {"signals": signals},
         ]
     }
-    project_settings = { "target_part": params.target_part, "vitis_hls_solution": {params.top:path}}
+    project_settings = {
+        "target_part": params.target_part,
+        "vitis_hls_solution": {params.top: path},
+    }
     return (packed_signals, project_settings)
+
 
 class PathParams:
     pass
+
 
 def make_project_setting(project_settings, project_name):
     params = PathParams()
@@ -159,10 +164,14 @@ def make_project_setting(project_settings, project_name):
     params.solution_path = []
     params.solution_path.append(project_settings["vitis_hls_solution"])
 
-    params.vivado_block_design = {"auto_start_gui": 0, "auto_connect_block_design": 1, "to_step_write_bitstream": 1}
+    params.vivado_block_design = {
+        "auto_start_gui": 0,
+        "auto_connect_block_design": 1,
+        "to_step_write_bitstream": 1,
+    }
     return dict(vars(params))
-    
-    
+
+
 def init_project(args):
     if os.path.exists(args.project) and not args.force:
         _logger.error(
@@ -172,7 +181,9 @@ def init_project(args):
         sys.exit(1)
     os.makedirs(args.project, exist_ok=args.force)
     _logger.info("Generating configuration file from Vitis HLS solution")
-    parsed_dict, project_settings = parse_solution_file(os.path.abspath(args.solution_dir))
+    parsed_dict, project_settings = parse_solution_file(
+        os.path.abspath(args.solution_dir)
+    )
     project_dict = make_project_setting(project_settings, args.project)
     with open(os.path.join(args.project, "config.json"), "w") as outfile:
         json.dump(parsed_dict, outfile, indent=2)

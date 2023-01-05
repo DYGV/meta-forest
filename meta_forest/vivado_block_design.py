@@ -14,13 +14,13 @@ def _configure_params(project_settings_dict, config_dict):
     params.board_part = project_settings_dict["target_part"]
 
     vivado_block_design = project_settings_dict["vivado_block_design"]
-    params.auto_start_gui = vivado_block_design["auto_start_gui"] 
+    params.auto_start_gui = vivado_block_design["auto_start_gui"]
     params.auto_connect_block_design = vivado_block_design["auto_connect_block_design"]
     params.to_step_write_bitstream = vivado_block_design["to_step_write_bitstream"]
 
     ip_name_list = []
     ip_count_list = []
-    for k,v in config_dict.items():
+    for k, v in config_dict.items():
         name = k
         count = v[0]["count"]
         if len(name) > 0 and count > 0:
@@ -54,11 +54,11 @@ def _build_command(params):
     )
     return command
 
+
 def package_rtl(solution_path):
     tcl_script = os.path.join(PACKAGE_INSTALLED_DIR, "package_rtl.tcl")
     return f"vitis_hls {tcl_script} {solution_path}"
 
-    
 
 def generate_block_design(args):
     logger = logging.getLogger("meta-FOrEST")
