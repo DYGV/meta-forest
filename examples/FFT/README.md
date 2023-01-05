@@ -20,7 +20,7 @@ vitis_hls preparation.tcl
 ```
 When the process is finished, you will see a directory named `vitis_hls`. There is **no need to do `export RTL`**, which is IP packaging.  
 
-## 1. Make meta-FOrEST Project!
+## 1. Make a meta-FOrEST Project!
 The meta-FOrEST project is created by hinting at the solution directory of the Vitis HLS project created earlier.  
 ```
 meta-forest init --project project_1 --solution_dir ./vitis_hls/solution1
@@ -54,7 +54,7 @@ And, in many cases, it is better to do this step on the FPGA board to avoid vers
 ```
 rsync -arv --exclude '*.log' --exclude 'ip/' --exclude 'vivado/' --exclude '.Xil' ./ xilinx@pynqz1:/home/xilinx/project_1
 ```
-The directory on the remote FPGA when the rsync command completes is shown in the following image.  
+The directory on the remote FPGA when the rsync command finishes is shown in the following image.  
 ![tree_on_fpga_board](./resources/rsync_remote_tree.png)  
 
 ## 4. Generate ROS2 Packages for ROS2-FPGA Nodes
@@ -71,11 +71,13 @@ Talker nodes are a bit more complicated because they are made to be somewhat gen
 In this example, you should change the point of `[0, 5]` to `[10, 10]` in `talker.py` and rebuild ROS2-FPGA package.  
 
 <img src="./resources/talker_change.png" width="40%" height="40%">  
+  
 ```
 ros2 launch project_1_fpga_node fpga_node_launch.py # as root
 ros2 launch project_1_fpga_node listener_launch.py
 ros2 launch project_1_fpga_node talker_launch.py
-```
+```  
+  
 It works! 
 
 - Left: Talker node feeding data into ROS2-FPGA node  
