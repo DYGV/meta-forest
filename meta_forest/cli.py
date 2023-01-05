@@ -1,7 +1,7 @@
 import argparse
 import sys
 
-from .config import generate_config
+from .project import init_project
 from .logging_utils import setup_logger
 from .ros_packages import generate_packages
 from .version import __version__
@@ -24,43 +24,43 @@ def _build_arg_parser():
 
     sub_parser = parser.add_subparsers()
 
-    _build_gen_config_parser(sub_parser)
+    _build_init_project(sub_parser)
     _build_gen_block_design_parser(sub_parser)
     _build_gen_node_parser(sub_parser)
 
     return parser
 
 
-def _build_gen_config_parser(parser):
-    parser_gen_config = parser.add_parser(
-        "gen_config",
-        help="Generate a template config file to be used meta-FOrEST",
+def _build_init_project(parser):
+    parser_init_project = parser.add_parser(
+        "init",
+        help="Generate meta-FOrEST project",
     )
-    parser_gen_config.add_argument(
-        "-c",
-        "--config",
+    parser_init_project.add_argument(
+        "-p",
+        "--project",
         metavar="STR",
         type=str,
-        default="config.toml",
-        help="Name of toml file to output (Default: config.toml)",
+        default="meta_forest_project",
+        help="meta-FOrEST project name",
     )
-    parser_gen_config.add_argument(
-        "-n",
-        "--number_of_IPs",
-        metavar="INT",
-        type=int,
-        required=True,
-        help="Number of IPs for the template config file",
-    )
-    parser_gen_config.add_argument(
+    parser_init_project.add_argument(
         "-f",
         "--force",
         action="store_true",
-        help="Force generation even if config file already exists",
+        help="Force generation even if project directory already exists",
     )
-    parser_gen_config.set_defaults(func=generate_config)
 
-    return parser_gen_config
+    parser_init_project.add_argument(
+        "-s",
+        "--solution_dir",
+        metavar="STR",
+        type=str,
+        help="Vitis HLS solution directory",
+    )
+    parser_init_project.set_defaults(func=init_project)
+
+    return parser_init_project
 
 
 def _build_gen_block_design_parser(parser):
@@ -68,14 +68,6 @@ def _build_gen_block_design_parser(parser):
         "gen_block_design",
         help="Generate a Vivado block design \
         according to the description in config file",
-    )
-    parser_block_design.add_argument(
-        "-c",
-        "--config",
-        metavar="STR",
-        type=str,
-        default="config.toml",
-        help="Name of toml file to input (Default: config.toml)",
     )
     parser_block_design.set_defaults(func=generate_block_design)
 
@@ -89,12 +81,18 @@ def _build_gen_node_parser(parser):
         according to the description in config file",
     )
     parser_gen_node.add_argument(
-        "-c",
-        "--config",
+        "-r",
+        "--ros2_ws",
         metavar="STR",
         type=str,
-        default="config.toml",
-        help="Name of toml file to input (Default: config.toml)",
+        help="ros2 workspace",
+    )
+    parser_gen_node.add_argument(
+        "-b",
+        "--bitstream",
+        metavar="STR",
+        type=str,
+        help="bitstream path",
     )
     parser_gen_node.add_argument(
         "-t",

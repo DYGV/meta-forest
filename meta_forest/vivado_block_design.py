@@ -3,21 +3,21 @@ import logging
 import os
 import sys
 
-from . import config
+from . import project
 from .helpers import PACKAGE_INSTALLED_DIR, run_sys_cmd
 
 
-def _configure_params(config_dict):
-    params = config.Params()
-    params.project = f"{config_dict['project']}_vivado"
-    params.ip_directory = config_dict["Vivado"]["ip_directory"]
-    params.board_part = config_dict["Vivado"]["board_part"]
+def _configure_params(project_settings_dict, config_dict):
+    params = project.Params()
+    params.project = "vivado"
+    params.ip_directory = os.path.join(project_settings_dict["project_path"], "ip")
+    params.board_part = project_settings_dict["target_part"]
 
     ip_name_list = []
     ip_count_list = []
-    for IP in config_dict["IP"].values():
-        name = IP["name"]
-        count = IP["count"]
+    for k, v in config_dict.items():
+        name = k
+        count = v[0]["count"]
         if len(name) > 0 and count > 0:
             ip_name_list.append(name)
             ip_count_list.append(count)
@@ -42,16 +42,30 @@ def _build_command(params):
         args += f" -ip {name} {count}"
     tcl_script = os.path.join(PACKAGE_INSTALLED_DIR, "vivado_block_design.tcl")
     command = (
-        f"vivado -nolog -nojournal -mode batch "
-        f"-source {tcl_script} -tclargs {args}"
+        f"vivado -nolog -nojournal -mode batch -source {tcl_script} -tclargs {args}"
     )
     return command
 
 
+def package_rtl(solution_path):
+    tcl_script = os.path.join(PACKAGE_INSTALLED_DIR, "package_rtl.tcl")
+    return f"vitis_hls {tcl_script} {solution_path}"
+
+
 def generate_block_design(args):
     logger = logging.getLogger("meta-FOrEST")
-    config_dict = config.load(args.config)
-    params = _configure_params(config_dict)
+    project_settings_dict = dict(project.load_project_file("."))
+    config_dict = dict(project.load_config_file("."))
+
+    for solution_path in project_settings_dict["solution_path"]:
+        command = package_rtl(list(solution_path.values())[0])
+        logger.info(f"Built the command: {command}")
+        if not distutils.spawn.find_executable("vitis_hls"):
+            logger.error("Vitis HLS not found. Please setup Vitis HLS")
+            sys.exit(1)
+        run_sys_cmd(command)
+
+    params = _configure_params(project_settings_dict, config_dict)
     if not distutils.spawn.find_executable("vivado"):
         logger.error("Vivado not found. Please setup Vivado")
         sys.exit(1)

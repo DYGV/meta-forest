@@ -1,5 +1,5 @@
 # meta-FOrEST
-**meta-FOrEST** is a tool that allows automatic generation of multiple *ROS2-FPGA nodes* that are developed based on [FOrEST](https://github.com/ros2-forest/forest).
+meta-FOrEST is an automatic generation tool for multiple ROS2-FPGA nodes.
 
 ## Installation
 
@@ -9,33 +9,8 @@ pip3 install git+https://github.com/DYGV/meta-forest
 ```
 
 ## Usage
-meta-FOrEST has several subcommands. Run `meta-forest --help` to see available subcommands and their options.   
-
-```
-$ meta-forest --help
-usage: meta-forest [-h] [-v] [-l STR] {gen_config,gen_block_design,gen_node} ...
-
-positional arguments:
-  {gen_config,gen_block_design,gen_node}
-    gen_config          Generate a template config file to be used meta-FOrEST
-    gen_block_design    Generate a Vivado block design according to the description
-                        in config file
-    gen_node            Generate ROS2-FPGA Nodes according to the description in
-                        config file
-
-options:
-  -h, --help            show this help message and exit
-  -v, --version         show program's version number and exit
-  -l STR, --log_level STR
-                        set logging level (debug|info|warn|error) (Default: info)
-```
-
-## Recommended Environment
-WIP  
-
-## Tutorial
-WIP  
-
+**See the [FFT example](./examples/FFT) for usage.** More explanations and examples will be added in the future.  
+Caution: The types available for meta-FOrEST are the same as for [FOrEST's type support](https://github.com/ros2-forest/forest/tree/master/docs/tutorials#type-support).  
 # Related Publications
 
 - [1] - D. Pinheiro Leal, M. Sugaya, H. Amano, T. Ohkawa "Automated Integration of High-Level Synthesis FPGA Modules with ROS2 Systems", International Conference on Field Programmable Technology (FPT), 2020. 

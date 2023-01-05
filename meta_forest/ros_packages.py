@@ -4,49 +4,38 @@ import os
 import re
 import shutil
 
-from . import config
+from . import project
 from .helpers import TEMPORARY_OUTPUT_DIR, render_to_template, run_sys_cmd
 
 
 def _build_io_maps(config_dict):
     io_maps = {"map_num": {}, "maps": {}}
-    for IP_num, IP in config_dict["IP"].items():
-        io_maps["maps"].update({IP_num: {"input": {}, "output": {}}})
-        for count in range(IP["count"]):
-            io_maps["map_num"].update({f"{IP['name']}_{count}": IP_num})
+    ip_num = 0
+    for ip_name, ip_details in config_dict.items():
+        ip_num += 1
+        ip_count = ip_details[0]["count"]
+        ip_signals = ip_details[1]["signals"]
+        io_maps["maps"].update({ip_num: {"input": {}, "output": {}}})
 
-        io = IP["IO"]
-        for io_index, signal_name in enumerate(io["signal_names"]):
-            if io["directions"][io_index] == "I":
+        for count in range(ip_count):
+            io_maps["map_num"].update({f"{ip_name}_{count}": ip_num})
+        for signal in ip_signals:
+            if signal["direction"] == "in":
                 direction = "input"
-            elif io["directions"][io_index] == "O":
+            elif signal["direction"] == "out":
                 direction = "output"
-
-            ros2_type = io["types"][io_index]
-            type_match = re.search(
-                r"(?P<unsigned>[u|U]?)(?P<type>[a-zA-Z]+)" r"(?P<n_bits>\d+)",
-                ros2_type,
-            )
-            n_elem_match = re.search(r".*?\[(\d+)\]", ros2_type)
-            type_parsed = type_match.groupdict()
-
             io_map = {}
-            addr = io["address_offsets"][io_index]
-            if addr == -1:
-                addr = None
-            io_map["addr"] = addr
-            io_map["protocol"] = io["protocols"][io_index]
-            io_map["type"] = type_parsed["type"].lower()
-            io_map["n_bits"] = int(type_parsed["n_bits"])
-            io_map["signed"] = type_parsed["unsigned"] == ""
-            io_map["n_elem"] = (
-                int(n_elem_match.groups()[0])
-                if n_elem_match is not None
-                else 1
-            )
-            io_map["arr"] = n_elem_match is not None
-            io_maps["maps"][IP_num][direction][signal_name] = io_map
 
+            signal_name = signal["name"]
+            io_map["addr"] = signal["address_offset"]
+            io_map["protocol"] = signal["protocol"].replace("axi4", "").lower()
+            io_map["type"] = signal["type"]
+            io_map["n_bits"] = int(signal["data_width"])
+            io_map["signed"] = not signal["is_unsigned"]
+            io_map["n_elem"] = int(signal["array_size"])
+            io_map["arr"] = signal["is_array"]
+            io_maps["maps"][ip_num][direction][signal_name] = io_map
+    print(io_maps)
     return io_maps
 
 
@@ -58,10 +47,10 @@ def build_packages_with_colcon(dev_ws, packages_list):
 
 
 class MessagePackage:
-    def _configure_params(self, config_dict):
-        params = config.Params()
-        params.project = f"{config_dict['project']}_interface"
-        params.dev_ws = config_dict["ROS2-FPGA"]["dev_ws"]
+    def _configure_params(self, project_settings_dict, config_dict, dev_ws):
+        params = project.Params()
+        params.project = f"{project_settings_dict['project_name']}_interface"
+        params.dev_ws = dev_ws
         params.io_maps = _build_io_maps(config_dict)
         return params
 
@@ -157,9 +146,7 @@ class MessagePackage:
 
         shutil.copy(
             os.path.join(TEMPORARY_OUTPUT_DIR, "CMakeLists-int.txt"),
-            os.path.join(
-                params.dev_ws, "src", params.project, "CMakeLists.txt"
-            ),
+            os.path.join(params.dev_ws, "src", params.project, "CMakeLists.txt"),
         )
         shutil.copy(
             os.path.join(TEMPORARY_OUTPUT_DIR, "package-int.xml"),
@@ -171,12 +158,12 @@ class NodePackage:
     def __init__(self, test_node_enabled):
         self.test_node_enabled = test_node_enabled
 
-    def _configure_params(self, config_dict):
-        params = config.Params()
-        params.project = f"{config_dict['project']}_fpga_node"
-        params.project_interface = f"{config_dict['project']}_interface"
-        params.dev_ws = config_dict["ROS2-FPGA"]["dev_ws"]
-        params.bit_file = config_dict["ROS2-FPGA"]["bitstream"]
+    def _configure_params(self, project_settings_dict, config_dict, dev_ws, bitstream):
+        params = project.Params()
+        params.project = f"{project_settings_dict['project_name']}_fpga_node"
+        params.project_interface = f"{project_settings_dict['project_name']}_interface"
+        params.dev_ws = dev_ws
+        params.bit_file = bitstream
         params.io_maps = _build_io_maps(config_dict)
         params.qos = 10
         params.head_ip_name = next(iter(params.io_maps["map_num"]))
@@ -328,9 +315,7 @@ class NodePackage:
             ),
         )
         # Copy modified node fpga_node_launch.py
-        launch_dir = os.path.join(
-            params.dev_ws, "src", params.project, "launch"
-        )
+        launch_dir = os.path.join(params.dev_ws, "src", params.project, "launch")
         if not os.path.exists(launch_dir):
             os.makedirs(launch_dir)
         launch_file_name = "fpga_node_launch.py"
@@ -373,13 +358,18 @@ class NodePackage:
 
 def generate_packages(args):
     logger = logging.getLogger("meta-FOrEST")
-    config_dict = config.load(args.config)
+    config_dict = dict(project.load_config_file("."))
+    project_settings_dict = dict(project.load_project_file("."))
 
     message_package = MessagePackage()
     node_package = NodePackage(args.test)
 
-    message_package_params = message_package._configure_params(config_dict)
-    node_package_params = node_package._configure_params(config_dict)
+    message_package_params = message_package._configure_params(
+        project_settings_dict, config_dict, args.ros2_ws
+    )
+    node_package_params = node_package._configure_params(
+        project_settings_dict, config_dict, args.ros2_ws, args.bitstream
+    )
 
     logger.info("Generating the ROS2 package for the FPGA node messages")
     message_package._create(message_package_params)
@@ -389,6 +379,6 @@ def generate_packages(args):
 
     logger.info("Building the ROS2 packages")
     build_packages_with_colcon(
-        config_dict["ROS2-FPGA"]["dev_ws"],
+        args.ros2_ws,
         [message_package_params.project, node_package_params.project],
     )
