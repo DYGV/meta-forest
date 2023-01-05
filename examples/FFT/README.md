@@ -6,6 +6,7 @@ The following environments were tested:
 - Vitis HLS 2022.1
 - PYNQ-Z1(xc7z020clg400-1), M-KUBOS(xczu19eg-ffvc1760-2-i)
   - OS: PYNQ v2.5
+  - ROS2: eloquent 
 ## Goal of This Sample
 The goal of this sample is to run **two ROS2-FPGA nodes** of 1024-point FFT processing on `PYNQ-Z1`.  
 
@@ -67,7 +68,8 @@ meta-forest gen_node --bitstream /home/xilinx/project_1/1024-fft-2.bit --ros2_ws
 
 If you launch the talker node, there will be no output from the ROS2-FPGA node. This is because the number of FFT points written to the FPGA logic is random.  You need to rewrite the Talker node.
 Talker nodes are a bit more complicated because they are made to be somewhat generic.  
-In this example, you should change the point of `[0, 5]` to `[10, 10]` in `talker.py` and rebuild ROS2-FPGA package.
+In this example, you should change the point of `[0, 5]` to `[10, 10]` in `talker.py` and rebuild ROS2-FPGA package.  
+
 <img src="./resources/talker_change.png" width="40%" height="40%">  
 ```
 ros2 launch project_1_fpga_node fpga_node_launch.py # as root
