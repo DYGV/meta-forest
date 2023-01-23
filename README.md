@@ -4,8 +4,7 @@
 **meta-FOrEST** is an automatic generation tool for multiple ROS2-FPGA nodes. meta-FOrEST is developed based on [FOrEST](https://github.com/ros2-forest/forest).  
 Currently, meta-FOrEST has the following features:  
 - [x] Multiple ROS2-FPGA Nodes Generation  
-- [x] Automatic Generation of a Vivado Block Design with multiple IP cores from a Vitis HLS project  
-- [x] Semi-Automatic Configuration file description (Advanced version of a file like FOrEST's config.forset)
+- [x] Automatic Generation of a Vivado Block Design with multiple IP cores
 
 
 ## Installation
@@ -18,10 +17,8 @@ pip3 install git+https://github.com/DYGV/meta-forest
 ## Usage
 ### Tutorials
 You can learn how to use meta-FOrEST through examples.
-- Simple Tutorial:
-  - [simple-add](./examples/simple-add) (WIP)
-  - [vector-add-lite](./examples/vector-add-lite) (WIP)
-- Advanced Tutorial: [Fast Fourier Transform](./examples/FFT)
+- [simple-add](./examples/simple-add) (WIP)
+- [Fast Fourier Transform](./examples/FFT)
  
 ### Caution
 The types available for meta-FOrEST are the same as for [FOrEST's type support](https://github.com/ros2-forest/forest/tree/master/docs/tutorials#type-support).  

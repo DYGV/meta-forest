@@ -1,26 +1,40 @@
-from {{ params.project }} import ros_fpga_lib
+from {{ params.project }} import pynq_driver
 from launch_ros.actions import Node
 from launch import LaunchDescription
 
 
 def generate_launch_description():
-    ros_fpga_lib.FpgaDriver(None).program_fpga()
-    return LaunchDescription(
-        [
-            Node(
-                package="{{ params.project }}",
-                node_executable="fpga_node",
-                node_name="fpga_node_%s" % ip_name,
-                parameters=[
-                    {
-                        "fpga_in_topic": "fpga_in_topic_%s" % ip_name,
-                        "fpga_out_topic": "fpga_out_topic_%s" % ip_name,
-                        "program_fpga": False,
-                        "user_ip": ip_name,
-                    }
-                ],
-                output="screen",
-            )
-            for ip_name in {{ params.ip_names }}
-        ]
-    )
+    bitfile_path = "{{ params.bitfile_path }}"
+    ros2_interface_pkg = "{{ params.ros2_interface_pkg }}"
+    ros2_interface_in = "{{ params.ros2_interface_in }}"
+    ros2_interface_out = "{{ params.ros2_interface_out }}"
+    fpga_in_topic_prefix = "fpga_in_topic_"
+    fpga_out_topic_prefix = "fpga_out_topic_"
+    ip_names = {{ params.ip_names }}
+
+    pynq_driver.FpgaDriver.program_fpga(bitfile_path)
+
+    fpga_nodes = [
+        Node(
+            package="{{ params.project }}",
+            node_executable="fpga_node",
+            node_name="fpga_node_%s" % ip_name,
+            parameters=[
+                {
+                    "bitfile_path": bitfile_path,
+                    "ros2_interface_pkg": ros2_interface_pkg,
+                    "ros2_interface_in": ros2_interface_in,
+                    "ros2_interface_out": ros2_interface_out,
+                    "fpga_in_topic": fpga_in_topic_prefix + ip_name,
+                    "fpga_out_topic": fpga_out_topic_prefix + ip_name,
+                    "program_fpga": False,
+                    "bitfile_path": bitfile_path,
+                    "user_ip": ip_name,
+                }
+            ],
+            output="screen",
+            emulate_tty=True,
+        )
+        for ip_name in ip_names
+    ]
+    return LaunchDescription(fpga_nodes)

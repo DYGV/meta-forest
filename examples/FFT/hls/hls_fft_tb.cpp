@@ -25,7 +25,7 @@ int main() {
     }
 
     // FFT Execution
-    hls_fft(input_data, output_data, nfft);
+    hls_fft(input_data, output_data);
 
     // Reading FFT results from a stream
     data_t dout;

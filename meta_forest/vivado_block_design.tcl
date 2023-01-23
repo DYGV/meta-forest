@@ -3,7 +3,7 @@ proc create_vivado_project {project_name project_directory} {
     create_project -force $project_name [append $project_directory $project_name]
 }
 
-proc setup_vivado_project {device_part ip_directory bd_name} {
+proc setup_vivado_project {device_part ip_directories bd_name} {
     # Setup FPGA to be set up in a project and creating a block design file
 
     # Configure board parts for the project
@@ -15,11 +15,13 @@ proc setup_vivado_project {device_part ip_directory bd_name} {
     }
     # Setting related to the Vivado project
     set_property target_language "Verilog" [current_project]
-    set_property ip_repo_paths $ip_directory [current_fileset]
+    set_property ip_repo_paths $ip_directories [current_fileset]
     update_ip_catalog
-    set ip_zip [glob [file join $ip_directory/*.zip]]
-    foreach ip $ip_zip {
-        update_ip_catalog -add_ip $ip -repo_path $ip_directory
+    foreach ip_directory $ip_directories {
+        set ip_zip [glob [file join $ip_directory/*.zip]]
+        foreach ip $ip_zip {
+            update_ip_catalog -add_ip $ip -repo_path $ip_directory
+        }
     }
     if { [string length [get_filesets -quiet sources_1]] == 0 } {
         create_fileset -srcset sources_1
@@ -362,7 +364,7 @@ set project_name ""
 # Board parts to be applied to the project (required arg)
 set device_part ""
 # Absolute path where the user IP is located (required arg)
-set ips_directory ""
+set ip_directories ""
 # Name of block design file (default: "design_1")
 set bd_file_name "design_1"
 # Whether to automatically connect IP cores to each other (default: false)
@@ -391,8 +393,8 @@ while { $seeking_index < $argc } {
             set bd_file_name [lindex $argv $seeking_index]
             incr seeking_index
         }
-        -ips_directory {
-            set ips_directory [lindex $argv $seeking_index]
+        -ip_directories {
+            set ip_directories [lindex $argv $seeking_index]
             incr seeking_index
         }
         -auto_connect {
@@ -432,7 +434,7 @@ if { $device_part eq "" } {
     exit
 }
 
-if { $ips_directory eq "" } {
+if { $ip_directories eq "" } {
     puts "No directory where the user IP is located was specified."
     exit
 }
@@ -442,7 +444,7 @@ if { ![info exists ips] } {
 }
 
 create_vivado_project $project_name [pwd]
-setup_vivado_project $device_part $ips_directory $bd_file_name
+setup_vivado_project $device_part $ip_directories $bd_file_name
 
 set PS [add_vivado_bd_ip_ps]
 dict for {ip_name ip_count} $ips {

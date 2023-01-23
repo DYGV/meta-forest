@@ -56,13 +56,7 @@ void hls_fft(fft_stream &stream_input, fft_stream &stream_output, unsigned size)
 #pragma HLS STREAM variable = fft_in
 #pragma HLS STREAM variable = fft_out
 #pragma HLS dataflow
-    // FFT point must be at least 8(2^3) points
-    if (size < 3) {
-        // If size is smaller than 3, FFT is performed with the maximum value
-        size = TWO_TO_THE_POWER_OF_N_MAX;
-    }
-
     read_input_data_from_stream(stream_input, fft_in);
-    call_fft_ip(fft_in, fft_out, size);
-    write_output_data_to_stream(stream_output, fft_out, (1 << size));
+    call_fft_ip(fft_in, fft_out, NMAX);
+    write_output_data_to_stream(stream_output, fft_out, FFT_LENGTH_MAX);
 }

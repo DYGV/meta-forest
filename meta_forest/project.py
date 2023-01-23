@@ -20,12 +20,10 @@ class Signal:
     def __init__(self):
         self.name = ""
         self.direction = ""
-        self.protocol = ""
         self.type = ""
-        self.is_array = False
-        self.array_size = 0
-        self.is_unsigned = False
-        self.address_offset = -1
+        #self.is_array = False
+        #self.array_size = 0
+        #self.is_unsigned = False
 
 
 def find_cpp_primitive_type_from_ap_int(type_name):
@@ -61,13 +59,6 @@ def find_cpp_primitive_type(type_name):
                 is_unsigned = True
             primitive_type = primitive_type
             return (is_unsigned, primitive_type, is_array)
-
-
-def find_address_offset(signal_name, constraints):
-    for constraint in constraints:
-        if constraint["argName"] == signal_name:
-            return int(constraint["offset"])
-
 
 def find_array_size(solution_base_dir, top_name):
     adb_file_path = os.path.join(
@@ -121,25 +112,33 @@ def parse_solution_file(path):
         signal.direction = arg_detail["direction"]
         interface_name = arg_detail["hwRefs"][0]["interface"]
         interface = interfaces[interface_name]
-        signal.protocol = interface["type"]
-        signal.data_width = int(interface["dataWidth"])
-        if signal.protocol == "axi4lite":
+        protocol = interface["type"]
+        type_dict = {"type": "", "is_unsigned": False, "data_width": 0, "array_size": 0}
+        type_dict["data_width"] = int(interface["dataWidth"])
+        # signal.data_width = int(interface["dataWidth"])
+        if protocol == "axi4lite":
             constraints = interface["constraints"]
-            signal.address_offset = find_address_offset(signal.name, constraints)
             for array_signal_name, array_size in array_size_dict.items():
                 if array_signal_name == signal.name:
                     if signal.direction == "out" and array_size == 0:
-                        signal.array_size = 1
+                        #signal.array_size = 1
+                        type_dict["array_size"] = 1
                     else:
-                        signal.array_size = array_size
+                        #signal.array_size = array_size
+                        type_dict["array_size"] = array_size
         primitive_type_match = find_cpp_primitive_type(arg_detail["srcType"])
         if primitive_type_match:
-            signal.is_unsigned = primitive_type_match[0]
-            signal.type = primitive_type_match[1]
-            signal.is_array = primitive_type_match[2]
-        if signal.protocol == "axi4stream":
-            signal.is_array = True
-            signal.array_size = 1
+            #signal.is_unsigned = primitive_type_match[0]
+            #signal.type = primitive_type_match[1]
+            #signal.is_array = primitive_type_match[2]
+            type_dict["is_unsigned"] = primitive_type_match[0]
+            type_dict["type"] = primitive_type_match[1]
+        if protocol == "axi4stream":
+            #signal.is_array = True
+            #signal.array_size = 1
+            type_dict["array_size"] = 1
+        signal.type = _build_ros2_type(type_dict)
+
 
     signals = [dict(vars(i)) for i in params.signals]
     packed_signals = {
@@ -154,10 +153,19 @@ def parse_solution_file(path):
     }
     return (packed_signals, project_settings)
 
+def _build_ros2_type(type_dict):
+    ros2_type = ""
+    if type_dict["is_unsigned"]:
+        ros2_type += "u"
+    ros2_type += type_dict["type"]
+    ros2_type += str(type_dict["data_width"])
+    if type_dict["array_size"] > 0:
+        ros2_type += f"[{type_dict['array_size']}]"
+    return ros2_type
+
 
 class PathParams:
     pass
-
 
 def make_project_setting(project_settings, project_name):
     params = PathParams()

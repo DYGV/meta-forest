@@ -1,80 +1,99 @@
 import sys
 
-# Import ROS python and Node functionalities
 import rclpy
 from rclpy.node import Node
 
-# Import the messages defined for the ROS FPGA Node interface
-from {{params.project}}.msg import *
+from {{ params.ros2_interface_pkg }}.msg import *
 
-# ros_fpga_lib has the functions to interact with the FPGA HW
-from .ros_fpga_lib import *
+from .pynq_driver import *
 
 
-# Define the FPGA Node class (has publisher and subscriber methods)
 class FpgaNode(Node):
     def __init__(self):
         super().__init__("fpga_node")
+        self.init_ros2_parameters()
+        self.fpga_driver = self.get_fpga_driver()
+        self.init_subscriber()
+        self.init_publisher()
+        self.print_user_ip_info()
+
+    def init_subscriber(self):
+        fpga_in_msg_cls_obj = getattr(
+            sys.modules[f"{self.ros2_interface_pkg}.msg"], self.ros2_interface_in
+        )
+        self.create_subscription(
+            fpga_in_msg_cls_obj, self.fpga_in_topic, self.callback, 10
+        )
+
+    def init_publisher(self):
+        fpga_in_msg_cls_obj = getattr(
+            sys.modules[f"{self.ros2_interface_pkg}.msg"], self.ros2_interface_out
+        )
+        self.fpga_out_msg = fpga_in_msg_cls_obj()
+        self.publisher = self.create_publisher(
+            fpga_in_msg_cls_obj, self.fpga_out_topic, 10
+        )
+
+    def print_user_ip_info(self):
+        self.get_logger().info(
+            "User IP phys_addr = 0x{:X}".format(self.fpga_driver.physical_address)
+        )
+        self.get_logger().info(
+            "User IP addr_range = 0x{:X}".format(self.fpga_driver.address_range)
+        )
+
+    def init_ros2_parameters(self):
         param_list = [
-            ("fpga_out_topic", "fpga_out_topic_{{ params.ip_name }}"),
+            ("ros2_interface_pkg", "{{ params.ros2_interface_pkg }}"),
+            ("ros2_interface_in", "{{ params.ros2_interface_in }}"),
+            ("ros2_interface_out", "{{ params.ros2_interface_out }}"),
             ("fpga_in_topic", "fpga_in_topic_{{ params.ip_name }}"),
+            ("fpga_out_topic", "fpga_out_topic_{{ params.ip_name }}"),
             ("program_fpga", True),
+            ("bitfile_path", "{{ params.bitfile_path }}"),
             ("user_ip", "{{ params.ip_name }}"),
         ]
-        params = self.declare_parameters(namespace="", parameters=param_list)
-        fpga_out_topic, fpga_in_topic, program_fpga, user_ip = self.get_parameters(
-            [param.name for param in params]
-        )
-        # Instantiate the FpgaDriver, program and setup the FPGA
-        self.fpga = FpgaDriver(user_ip.value)
-        if program_fpga.value:
-            self.fpga.program_fpga()
-        self.fpga.setup_fpga()
+        self.declare_parameters(namespace="", parameters=param_list)
+        self.ros2_interface_pkg = self.get_parameter("ros2_interface_pkg").value
+        self.ros2_interface_in = self.get_parameter("ros2_interface_in").value
+        self.ros2_interface_out = self.get_parameter("ros2_interface_out").value
+        self.bitfile = self.get_parameter("bitfile_path").value
+        self.user_ip = self.get_parameter("user_ip").value
+        self.program_fpga = self.get_parameter("program_fpga").value
+        self.fpga_in_topic = self.get_parameter("fpga_in_topic").value
+        self.fpga_out_topic = self.get_parameter("fpga_out_topic").value
 
-        msg_module_str = "{{ params.project }}.msg"
-        self.FpgaIn = getattr(
-            sys.modules[msg_module_str], "FpgaIn" + self.fpga.map_num_str
+    def get_fpga_driver(self):
+        driver = FpgaDriver(
+            self.bitfile,
+            self.program_fpga,
+            self.user_ip,
+            self.ros2_interface_pkg,
+            self.ros2_interface_in,
+            self.ros2_interface_out,
         )
-        self.FpgaOut = getattr(
-            sys.modules[msg_module_str], "FpgaOut" + self.fpga.map_num_str
+        self.get_logger().info(
+            f"the user IP used for this node is set to {self.user_ip}"
         )
-        # Publish to the fpga_out_topic topic, message type is self.FpgaOut
-        self.publisher_ = self.create_publisher(
-            self.FpgaOut, fpga_out_topic.value, {{params.qos}}
-        )
-        # Subscribe to the fpga_in_topic topic, message type is self.FpgaIn
-        self.create_subscription(
-            self.FpgaIn, fpga_in_topic.value, self.fpga_sub_callback, {{params.qos}}
-        )
-        self.msg = self.FpgaOut()
+        return driver
 
-    def fpga_pub_callback(self):
-        # Read output from HW
-        for out_signal in self.fpga.out_map.keys():
-            setattr(self.msg, out_signal, self.fpga.process_output(out_signal))
-        # Publish the result and print to the command line
-        self.publisher_.publish(self.msg)
-
-    def fpga_sub_callback(self, msg):
-        # Set input values
-        for in_signal in self.fpga.in_map.keys():
-            self.fpga.process_input(in_signal, getattr(msg, in_signal))
-        if self.fpga.has_axis_in or self.fpga.has_axis_out:
-            # Setup the input and/or output AXI-Stream buffers
-            self.fpga.setup_dma_buffers()
-        # Calculate the results
-        self.fpga.do_calc()
-        # Call the publisher callback
-        self.fpga_pub_callback()
+    def callback(self, input_msg):
+        self.get_logger().info(f"Received: {input_msg}")
+        for fpga_in_signal in self.fpga_driver.in_map.keys():
+            fpga_in_signal_msg_data = getattr(input_msg, fpga_in_signal)
+            self.fpga_driver.process_input(fpga_in_signal, fpga_in_signal_msg_data)
+        self.fpga_driver.do_calc()
+        for fpga_out_signal in self.fpga_driver.out_map.keys():
+            fpga_out_data = self.fpga_driver.process_output(fpga_out_signal)
+            setattr(self.fpga_out_msg, fpga_out_signal, fpga_out_data)
+        self.publisher.publish(self.fpga_out_msg)
+        self.get_logger().info(f"Publishing: {self.fpga_out_msg}")
 
 
 def main(args=None):
     rclpy.init(args=args)
-
     fpga_node = FpgaNode()
-
     rclpy.spin(fpga_node)
-
     fpga_node.destroy_node()
     rclpy.shutdown()
 

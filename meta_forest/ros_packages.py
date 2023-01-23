@@ -3,9 +3,10 @@ import logging
 import os
 import re
 import shutil
+from itertools import chain
 
 from . import project
-from .helpers import TEMPORARY_OUTPUT_DIR, render_to_template, run_sys_cmd
+from .helpers import TEMPORARY_OUTPUT_DIR, TEMPLATE_DIR, render_to_template, run_sys_cmd
 
 
 def _build_io_maps(config_dict):
@@ -27,13 +28,7 @@ def _build_io_maps(config_dict):
             io_map = {}
 
             signal_name = signal["name"]
-            io_map["addr"] = signal["address_offset"]
-            io_map["protocol"] = signal["protocol"].replace("axi4", "").lower()
             io_map["type"] = signal["type"]
-            io_map["n_bits"] = int(signal["data_width"])
-            io_map["signed"] = not signal["is_unsigned"]
-            io_map["n_elem"] = int(signal["array_size"])
-            io_map["arr"] = signal["is_array"]
             io_maps["maps"][ip_num][direction][signal_name] = io_map
     return io_maps
 
@@ -46,16 +41,16 @@ def build_packages_with_colcon(dev_ws, packages_list):
 
 
 class MessagePackage:
-    def _configure_params(self, project_settings_dict, config_dict, dev_ws):
+    def _configure_params(self, args):
         params = project.Params()
-        params.project = f"{project_settings_dict['project_name']}_interface"
-        params.dev_ws = dev_ws
-        params.io_maps = _build_io_maps(config_dict)
+        params.project = f"{args.package_name_prefix}_interface"
+        params.dev_ws = args.workspace
+        params.io_maps = args.ip  # _build_io_maps(args.ip)
         return params
 
     def _get_msg_files(self, params):
         msg_files = []
-        for map_num in params.io_maps["maps"].keys():
+        for map_num in range(1, len(params.io_maps) + 1):
             msg_files.append(os.path.join("msg", f"FpgaIn{map_num}.msg"))
             msg_files.append(os.path.join("msg", f"FpgaOut{map_num}.msg"))
         return msg_files
@@ -71,21 +66,15 @@ class MessagePackage:
             "project": params.project,
         }
 
-    def _process_msg_file(self, filename, io_map):
+    def _process_msg_file(self, filename, io, io_type):
         ros2_type = ""
-        for signal_name in io_map.keys():
-            is_arr = io_map[signal_name]["arr"]
-            signal_type = io_map[signal_name]["type"]
-            num_bits = str(io_map[signal_name]["n_bits"])
-            signed = io_map[signal_name]["signed"]
-            if not signed:
-                ros2_type += "u"
-            ros2_type += signal_type
-            ros2_type += num_bits
-            if is_arr:
-                n_elem = str(io_map[signal_name]["n_elem"])
-                ros2_type += "[" + n_elem + "]"
-            ros2_type += f" {signal_name}\n"
+
+        for i in range(len(io)):
+            # is_arr = io_map[signal_name]["arr"]
+            signal_name = io[i]
+            signal_type = io_type[i]
+
+            ros2_type += f"{signal_type} {signal_name}\n"
         f = open(
             os.path.join(TEMPORARY_OUTPUT_DIR, "%s-int.msg" % filename),
             "w",
@@ -97,11 +86,11 @@ class MessagePackage:
         msg_dir = os.path.join(params.dev_ws, "src", params.project, "msg")
         if not os.path.exists(msg_dir):
             os.makedirs(msg_dir)
-        for map_num, io_map in params.io_maps["maps"].items():
+        for map_num, io_map in enumerate(params.io_maps, 1):  # ["maps"].items():
             fpga_in_msg = f"FpgaIn{map_num}"
             fpga_out_msg = f"FpgaOut{map_num}"
-            self._process_msg_file(fpga_in_msg, io_map["input"])
-            self._process_msg_file(fpga_out_msg, io_map["output"])
+            self._process_msg_file(fpga_in_msg, io_map.input, io_map.input_type)
+            self._process_msg_file(fpga_out_msg, io_map.output, io_map.output_type)
 
             shutil.copy(
                 os.path.join(TEMPORARY_OUTPUT_DIR, f"{fpga_in_msg}-int.msg"),
@@ -154,19 +143,38 @@ class MessagePackage:
 
 
 class NodePackage:
-    def __init__(self, test_node_enabled):
-        self.test_node_enabled = test_node_enabled
-
-    def _configure_params(self, project_settings_dict, config_dict, dev_ws, bitstream):
+    def _configure_params(self, args):
         params = project.Params()
-        params.project = f"{project_settings_dict['project_name']}_fpga_node"
-        params.project_interface = f"{project_settings_dict['project_name']}_interface"
-        params.dev_ws = dev_ws
-        params.bit_file = bitstream
-        params.io_maps = _build_io_maps(config_dict)
+        params.project = f"{args.package_name_prefix}_fpga_node"
+        params.project_interface = f"{args.package_name_prefix}_interface"
+        params.dev_ws = args.workspace
+        params.test_node_enabled = args.test
+        params.bit_file = args.bitstream
+        params.io_maps = args.ip
         params.qos = 10
-        params.head_ip_name = next(iter(params.io_maps["map_num"]))
+        params.ip_names_2d = self.get_all_ip_names(params.io_maps)
+        params.ip_names = list(chain.from_iterable(params.ip_names_2d))
+        params.ip_msg_table = self.get_ip_msg_table(params.ip_names_2d)
+        params.head_ip_name = params.ip_names[0]
         return params
+
+    def get_all_ip_names(self, io_maps):
+        ip_names = []
+        for i in range(len(io_maps)):
+            name = io_maps[i].ip[0]
+            count = io_maps[i].count[0]
+            ip = [f"{name}_{x}" for x in range(count)]
+            ip_names.append(ip)
+        return ip_names
+
+    def get_ip_msg_table(self, ip_names_2d):
+        table = {}
+        for i in range(1, len(ip_names_2d) + 1):
+            ip_names = ip_names_2d[i - 1]
+            for ip_name in ip_names:
+                table[ip_name] = i
+
+        return table
 
     def _render(self, params):
         if not os.path.exists(TEMPORARY_OUTPUT_DIR):
@@ -186,23 +194,19 @@ class NodePackage:
             os.path.join(TEMPORARY_OUTPUT_DIR, "setup-node.py"),
             {
                 "project": params.project,
-                "test_enabled": self.test_node_enabled,
+                "test_enabled": params.test_node_enabled,
             },
-        )
-
-        render_to_template(
-            "ros_fpga_lib.py.jinja2",
-            os.path.join(TEMPORARY_OUTPUT_DIR, "ros_fpga_lib-node.py"),
-            {"project": params.project, "bit_file": params.bit_file},
         )
 
         render_to_template(
             "fpga_node.py.jinja2",
             os.path.join(TEMPORARY_OUTPUT_DIR, "fpga_node-node.py"),
             {
-                "project": params.project_interface,
-                "qos": params.qos,
+                "ros2_interface_pkg": params.project_interface,
+                "ros2_interface_in": "FpgaIn1",
+                "ros2_interface_out": "FpgaOut1",
                 "ip_name": params.head_ip_name,
+                "bitfile_path": params.bit_file,
             },
         )
 
@@ -210,12 +214,16 @@ class NodePackage:
             "fpga_node_launch.py.jinja2",
             os.path.join(TEMPORARY_OUTPUT_DIR, "fpga_node_launch.py"),
             {
+                "bitfile_path": params.bit_file,
+                "ros2_interface_pkg": params.project_interface,
+                "ros2_interface_in": "FpgaIn1",
+                "ros2_interface_out": "FpgaOut1",
                 "project": params.project,
-                "ip_names": list(params.io_maps["map_num"].keys()),
+                "ip_names": params.ip_names,
             },
         )
 
-        if not self.test_node_enabled:
+        if not params.test_node_enabled:
             return
 
         render_to_template(
@@ -233,7 +241,7 @@ class NodePackage:
             os.path.join(TEMPORARY_OUTPUT_DIR, "talker_launch.py"),
             {
                 "project": params.project,
-                "ip_map_nums": params.io_maps["map_num"],
+                "ip_map_nums": params.ip_msg_table,
             },
         )
 
@@ -252,7 +260,7 @@ class NodePackage:
             os.path.join(TEMPORARY_OUTPUT_DIR, "listener_launch.py"),
             {
                 "project": params.project,
-                "ip_map_nums": params.io_maps["map_num"],
+                "ip_map_nums": params.ip_msg_table,
             },
         )
 
@@ -268,19 +276,6 @@ class NodePackage:
         )
 
         self._render(params)
-        io_maps_json = open(
-            os.path.join(
-                params.dev_ws,
-                "src",
-                params.project,
-                params.project,
-                "io_maps.json",
-            ),
-            "w",
-        )
-        io_maps_json.write(json.dumps(params.io_maps))
-        io_maps_json.close()
-
         # Copy modified node package.xml
         shutil.copy(
             os.path.join(TEMPORARY_OUTPUT_DIR, "package-node.xml"),
@@ -304,15 +299,27 @@ class NodePackage:
         )
         # Copy modified node ros_fpga_lib.py
         shutil.copy(
-            os.path.join(TEMPORARY_OUTPUT_DIR, "ros_fpga_lib-node.py"),
+            os.path.join(TEMPLATE_DIR, "pynq_driver.py"),
             os.path.join(
                 params.dev_ws,
                 "src",
                 params.project,
                 params.project,
-                "ros_fpga_lib.py",
+                "pynq_driver.py",
             ),
         )
+
+        shutil.copy(
+            os.path.join(TEMPLATE_DIR, "io_maps.py"),
+            os.path.join(
+                params.dev_ws,
+                "src",
+                params.project,
+                params.project,
+                "io_maps.py",
+            ),
+        )
+
         # Copy modified node fpga_node_launch.py
         launch_dir = os.path.join(params.dev_ws, "src", params.project, "launch")
         if not os.path.exists(launch_dir):
@@ -324,7 +331,7 @@ class NodePackage:
         )
 
         # If running in test generation mode, copy the test nodes as well
-        if self.test_node_enabled:
+        if params.test_node_enabled:
             shutil.copy(
                 os.path.join(TEMPORARY_OUTPUT_DIR, "talker-node.py"),
                 os.path.join(
@@ -357,19 +364,10 @@ class NodePackage:
 
 def generate_packages(args):
     logger = logging.getLogger("meta-FOrEST")
-    config_dict = dict(project.load_config_file("."))
-    project_settings_dict = dict(project.load_project_file("."))
-
     message_package = MessagePackage()
-    node_package = NodePackage(args.test)
-
-    message_package_params = message_package._configure_params(
-        project_settings_dict, config_dict, args.ros2_ws
-    )
-    node_package_params = node_package._configure_params(
-        project_settings_dict, config_dict, args.ros2_ws, args.bitstream
-    )
-
+    node_package = NodePackage()
+    message_package_params = message_package._configure_params(args)
+    node_package_params = node_package._configure_params(args)
     logger.info("Generating the ROS2 package for the FPGA node messages")
     message_package._create(message_package_params)
 
@@ -378,6 +376,6 @@ def generate_packages(args):
 
     logger.info("Building the ROS2 packages")
     build_packages_with_colcon(
-        args.ros2_ws,
+        args.workspace,
         [message_package_params.project, node_package_params.project],
     )
