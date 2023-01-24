@@ -26,7 +26,7 @@ meta-forest gen_bd \
  --ip_directory ./vitis_hls/solution1  \
  --target_part xc7z020clg400-1 \
  --IP hls_fft \
- --count 2  
+ --count 2  \
  --step_to write_bitstream
  ```
  When the process is finished, you will see a directory named `vivado`.  
