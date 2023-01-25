@@ -17,7 +17,7 @@ pip3 install git+https://github.com/DYGV/meta-forest
 ## Usage
 ### Tutorials
 You can learn how to use meta-FOrEST through examples.
-- [simple-add](./examples/simple-add) (WIP)
+- [simple-add](./examples/simple-add)
 - [Fast Fourier Transform](./examples/FFT)
  
 ### Caution

@@ -2,9 +2,12 @@
 ## Overview
 This is a meta-FOrEST sample using C++ code that processes FFT using FFT Library.  
 The following environments were tested:
-- Vivado 2022.1
-- Vitis HLS 2022.1
-- PYNQ-Z1(xc7z020clg400-1), M-KUBOS(xczu19eg-ffvc1760-2-i)
+- [x] Vivado 2022.1
+- [x] Vitis HLS 2022.1
+- [x] PYNQ-Z1(xc7z020clg400-1)
+  - OS: PYNQ v2.5
+  - ROS2: eloquent
+- [x] M-KUBOS(xczu19eg-ffvc1760-2-i)
   - OS: PYNQ v2.5
   - ROS2: eloquent 
 ## Goal of This Sample
@@ -68,3 +71,4 @@ It works!
 - Right: Listener node receiving output from ROS2-FPGA node
 
 <img src="./resources/fft_process.png" width="50%" height="50%">
+
