@@ -80,7 +80,7 @@ ros2 launch fft_fpga_node talker_launch.py
 ```  
 It works!
 
-- Left: Talker node feeding data into ROS2-FPGA node
+- Left: Talker node feeding data (input data source) into ROS2-FPGA node
 - Center: ROS2-FPGA node performing FFT processing
 - Right: Listener node receiving output from ROS2-FPGA node
 
