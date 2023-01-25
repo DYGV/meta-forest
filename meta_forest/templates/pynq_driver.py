@@ -17,8 +17,8 @@ class FpgaDriver:
         ros2_msg_intf_out,
     ):
         self.overlay = Overlay(bitfile, download=program_fpga)
-        self.user_ip = getattr(self.overlay, user_ip_name)
         self.overlay.is_loaded = self.is_loaded
+        self.user_ip = getattr(self.overlay, user_ip_name)
         self.in_map, self.out_map = self._init_io_map(
             user_ip_name, ros2_msg_pkg, ros2_msg_intf_in, ros2_msg_intf_out
         )
