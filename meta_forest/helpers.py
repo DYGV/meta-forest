@@ -9,11 +9,13 @@ TEMPORARY_OUTPUT_DIR = os.path.join(PACKAGE_INSTALLED_DIR, "output")
 TEMPLATE_DIR = os.path.join(PACKAGE_INSTALLED_DIR, "templates")
 
 
+class Params:
+    pass
+
+
 def run_sys_cmd(cmd, cwd=None):
     # Helper function for running Linux commands
-    subprocess.run(
-        cmd, cwd=cwd, stderr=sys.stderr, stdout=sys.stdout, shell=True
-    )
+    subprocess.run(cmd, cwd=cwd, stderr=sys.stderr, stdout=sys.stdout, shell=True)
 
 
 def render_to_template(template_file_name, output_file_path, params):

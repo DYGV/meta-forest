@@ -5,8 +5,8 @@ import re
 import shutil
 from itertools import chain
 
-from . import project
-from .helpers import TEMPORARY_OUTPUT_DIR, TEMPLATE_DIR, render_to_template, run_sys_cmd
+from .helpers import (TEMPLATE_DIR, TEMPORARY_OUTPUT_DIR, Params,
+                      render_to_template, run_sys_cmd)
 
 
 def _build_io_maps(config_dict):
@@ -42,7 +42,7 @@ def build_packages_with_colcon(dev_ws, packages_list):
 
 class MessagePackage:
     def _configure_params(self, args):
-        params = project.Params()
+        params = Params()
         params.project = f"{args.package_name_prefix}_interface"
         params.dev_ws = args.workspace
         params.io_maps = args.ip  # _build_io_maps(args.ip)
@@ -143,7 +143,7 @@ class MessagePackage:
 
 class NodePackage:
     def _configure_params(self, args):
-        params = project.Params()
+        params = Params()
         params.project = f"{args.package_name_prefix}_fpga_node"
         params.project_interface = f"{args.package_name_prefix}_interface"
         params.dev_ws = args.workspace

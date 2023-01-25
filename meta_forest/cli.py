@@ -1,7 +1,6 @@
 import argparse
 import sys
 
-# from .project import init_project
 from .logging_utils import setup_logger
 from .ros_packages import generate_packages
 from .version import __version__
@@ -33,50 +32,55 @@ def _build_arg_parser():
 def _build_gen_block_design_parser(parser):
     parser_block_design = parser.add_parser(
         "gen_bd",
-        help="Generate a Vivado block design \
-        according to the description in config file",
+        help="Generate a Vivado block design",
     )
     parser_block_design.add_argument(
         "-d",
         "--ip_directory",
         required=True,
         type=str,
+        metavar="STR",
         action="append",
-        help="exported IP path",
+        help="Exported IP Path",
     )
 
     parser_block_design.add_argument(
+        "-I",
         "--IP",
         type=str,
+        metavar="STR",
         required=True,
         action="append",
-        help="ip",
+        help="IP Core Name; It is usually the top function of HLS.",
     )
 
     parser_block_design.add_argument(
         "-t",
         "--target_part",
         type=str,
+        metavar="STR",
         required=True,
-        help="target part",
+        help="Target FPGA Part",
     )
 
     parser_block_design.add_argument(
         "-c",
         "--count",
         type=int,
+        metavar="INT",
         required=True,
         action="append",
-        help="ip count",
+        help="Number of IP Cores to be Added to the Block Design",
     )
 
     parser_block_design.add_argument(
         "-s",
         "--step_to",
         type=str,
+        metavar="STR",
         default="write_bitstream",
         choices=["connect", "write_bitstream"],
-        help="step",
+        help="Steps on Vivado",
     )
 
     parser_block_design.set_defaults(func=generate_block_design)
@@ -102,8 +106,7 @@ class GroupedAction(argparse.Action):
 def _build_gen_node_parser(parser):
     parser_gen_node = parser.add_parser(
         "gen_node",
-        help="Generate ROS2-FPGA Nodes \
-        according to the description in config file",
+        help="Generate ROS2-FPGA Nodes",
     )
     parser_gen_node.add_argument(
         "-p",
@@ -111,22 +114,21 @@ def _build_gen_node_parser(parser):
         required=True,
         metavar="STR",
         type=str,
-        help="ROS2 package name prefix",
+        help="ROS2 Package Name Prefix",
     )
     parser_gen_node.add_argument(
         "-w",
         "--workspace",
         metavar="STR",
         type=str,
-        help="ros2 workspace",
+        help="ROS2 Workspace Directory",
     )
 
     parser_gen_node.add_argument(
         "-t",
         "--test",
         action="store_true",
-        help="Generate simple talker and listener nodes \
-        along with the FPGA ROS node",
+        help="Generate Talker/Listener Nodes",
     )
 
     parser_gen_node.add_argument(
@@ -135,21 +137,25 @@ def _build_gen_node_parser(parser):
         required=True,
         metavar="STR",
         type=str,
-        help="bitstream path",
+        help="Bitstream Path",
     )
 
     parser_gen_node.add_argument(
         "-I",
         "--IP",
         action=GroupedAction,
+        help="IP Core Name; It is usually the top function of HLS.",
         type=str,
+        metavar="STR",
         dest="ip.ip",
         default=argparse.SUPPRESS,
     )
     parser_gen_node.add_argument(
         "-c",
         "--count",
+        help="Number of IP Cores Used in The Generated ROS2-FPGA Nodes",
         type=int,
+        metavar="INT",
         action=GroupedAction,
         dest="ip.count",
         default=argparse.SUPPRESS,
@@ -157,29 +163,37 @@ def _build_gen_node_parser(parser):
     parser_gen_node.add_argument(
         "-i",
         "--in",
+        help="Input variable names to be used in ROS2 custom messages. Must match the variable name in the data input of the top function argument.",
         action=GroupedAction,
         type=str,
+        metavar="STR",
         dest="ip.input",
         default=argparse.SUPPRESS,
     )
     parser_gen_node.add_argument(
         "-o",
         "--out",
+        help="Output variable names to be used in ROS2 custom messages. Must match the variable name in the data output of the top function argument.",
         action=GroupedAction,
         type=str,
+        metavar="STR",
         dest="ip.output",
         default=argparse.SUPPRESS,
     )
     parser_gen_node.add_argument(
         "--in_type",
         action=GroupedAction,
+        help="Type as input to be used in ROS2 custom messages(e.g. int32[1024])",
         type=str,
+        metavar="STR",
         dest="ip.input_type",
         default=argparse.SUPPRESS,
     )
     parser_gen_node.add_argument(
         "--out_type",
         type=str,
+        help="Type as output to be used in ROS2 custom messages; It must always be an array(e.g. int32[1])",
+        metavar="STR",
         action=GroupedAction,
         dest="ip.output_type",
         default=argparse.SUPPRESS,

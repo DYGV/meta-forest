@@ -3,12 +3,11 @@ import logging
 import os
 import sys
 
-from . import project
-from .helpers import PACKAGE_INSTALLED_DIR, run_sys_cmd
+from .helpers import PACKAGE_INSTALLED_DIR, Params, run_sys_cmd
 
 
 def _configure_params(args):
-    params = project.Params()
+    params = Params()
     params.project = "vivado"
     params.ip_directory = args.ip_directory
     params.board_part = args.target_part
