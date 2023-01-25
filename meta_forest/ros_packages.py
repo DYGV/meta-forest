@@ -70,7 +70,6 @@ class MessagePackage:
         ros2_type = ""
 
         for i in range(len(io)):
-            # is_arr = io_map[signal_name]["arr"]
             signal_name = io[i]
             signal_type = io_type[i]
 
@@ -148,6 +147,7 @@ class NodePackage:
         params.project = f"{args.package_name_prefix}_fpga_node"
         params.project_interface = f"{args.package_name_prefix}_interface"
         params.dev_ws = args.workspace
+        params.ros_distro = os.environ["ROS_DISTRO"]
         params.test_node_enabled = args.test
         params.bit_file = args.bitstream
         params.io_maps = args.ip
@@ -214,6 +214,7 @@ class NodePackage:
             "fpga_node_launch.py.jinja2",
             os.path.join(TEMPORARY_OUTPUT_DIR, "fpga_node_launch.py"),
             {
+                "ros_distro": params.ros_distro,
                 "bitfile_path": params.bit_file,
                 "ros2_interface_pkg": params.project_interface,
                 "ros2_interface_in": "FpgaIn1",
@@ -240,6 +241,7 @@ class NodePackage:
             "talker_launch.py.jinja2",
             os.path.join(TEMPORARY_OUTPUT_DIR, "talker_launch.py"),
             {
+                "ros_distro": params.ros_distro,
                 "project": params.project,
                 "ip_map_nums": params.ip_msg_table,
             },
@@ -259,6 +261,7 @@ class NodePackage:
             "listener_launch.py.jinja2",
             os.path.join(TEMPORARY_OUTPUT_DIR, "listener_launch.py"),
             {
+                "ros_distro": params.ros_distro,
                 "project": params.project,
                 "ip_map_nums": params.ip_msg_table,
             },

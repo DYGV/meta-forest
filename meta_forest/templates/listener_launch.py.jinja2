@@ -8,8 +8,13 @@ def generate_launch_description():
         [
             Node(
                 package="{{ params.project }}",
+                {%- if params.ros_distro == "eloquent" %}
                 node_executable="listener",
                 node_name="listener_%s" % ip_name,
+                {%- else %}
+                executable="listener",
+                name="listener_%s" % ip_name,
+                {%- endif %}
                 parameters=[
                     {
                         "fpga_out_topic": "fpga_out_topic_%s" % ip_name,

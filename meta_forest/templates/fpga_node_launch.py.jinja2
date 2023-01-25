@@ -17,8 +17,13 @@ def generate_launch_description():
     fpga_nodes = [
         Node(
             package="{{ params.project }}",
+            {%- if params.ros_distro == "eloquent" %}}
             node_executable="fpga_node",
             node_name="fpga_node_%s" % ip_name,
+            {%- else %}
+            executable="fpga_node",
+            name="fpga_node_%s" % ip_name,
+            {%- endif %}
             parameters=[
                 {
                     "bitfile_path": bitfile_path,
