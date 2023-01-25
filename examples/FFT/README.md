@@ -13,6 +13,9 @@ The following environments were tested:
 - [x] M-KUBOS(xczu19eg-ffvc1760-2-i)
   - OS: PYNQ v2.5
   - ROS2: eloquent  
+- [x] Kria KR260 (K26 SOM: XCK26-SFVC784-2LV-C)
+  - OS: [Kria-PYNQ v3.0](https://github.com/Xilinx/Kria-PYNQ/releases/tag/v3.0)
+  - ROS2: humble  
 
 ## Preparation
 Let's prepare before using meta-FOrEST.  

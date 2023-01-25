@@ -18,18 +18,25 @@ class FpgaDriver:
     ):
         self.overlay = Overlay(bitfile, download=program_fpga)
         self.user_ip = getattr(self.overlay, user_ip_name)
-        self.overlay.is_loaded = True
+        self.overlay.is_loaded = self.is_loaded
         self.in_map, self.out_map = self._init_io_map(
             user_ip_name, ros2_msg_pkg, ros2_msg_intf_in, ros2_msg_intf_out
         )
         self.setup_dma_ip()
+
+    def is_loaded(self):
+        return True
 
     def _init_io_map(
         self, user_ip_name, ros2_msg_pkg, ros2_msg_intf_in, ros2_msg_intf_out
     ):
         ros2_in = ROS2Map.message_file(ros2_msg_pkg, ros2_msg_intf_in)
         ros2_out = ROS2Map.message_file(ros2_msg_pkg, ros2_msg_intf_out)
-        io_map = generate_map(self.overlay.parser, user_ip_name, ros2_in, ros2_out)
+        try:
+            io_map = generate_map(self.overlay.parser, user_ip_name, ros2_in, ros2_out)
+        except:
+            bit = self.overlay.bitfile_name
+            io_map = generate_map(HWHMap.get_hwh(bit), user_ip_name, ros2_in, ros2_out)
         return (io_map.input, io_map.output)
 
     @classmethod
