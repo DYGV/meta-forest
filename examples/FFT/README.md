@@ -28,6 +28,11 @@ vitis_hls preparation.tcl
 When the process is finished, you will see a directory named `vitis_hls`.
 
 ## Make a Vivado Block Design with meta-FOrEST!
+Please set up the path for Vivado before executing `meta-forest gen_bd` command. In our environment, we set the following.
+```
+source /tools/Xilinx/Vivado/2022.1/settings64.sh
+```  
+
 ```
 meta-forest gen_bd \
  --ip_directory ./vitis_hls/solution1  \
@@ -46,6 +51,11 @@ scp vivado/vivado.gen/sources_1/bd/design_1/hw_handoff/design_1.hwh  xilinx@xxx.
 
 ## Generate ROS2 Packages for ROS2-FPGA Nodes
 Finally, let's generate the package for the ROS2-FPGA nodes on your FPGA board.  
+Please set up the path for ROS2 before executing `meta-forest gen_node` command. In our environment, we set the following.
+
+```
+source /opt/ros/eloquent/setup.bash
+```
 
 By executing the code below, the code will be generated in the ROS2 workspace as shown in the image.  
 
