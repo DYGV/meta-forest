@@ -10,8 +10,10 @@ Currently, meta-FOrEST has the following features:
 ## Installation
 
 ```
+git clone https://github.com/DYGV/meta-forest
+cd meta-forest
 pip3 install --upgrade pip
-pip3 install git+https://github.com/DYGV/meta-forest
+pip3 install .
 ```
 
 ## Usage
