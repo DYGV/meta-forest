@@ -21,12 +21,20 @@ Currently, meta-FOrEST has the following features:
 - [x] [PYNQ v2.5](https://github.com/Xilinx/PYNQ/releases/tag/v2.5)
 - [x] [PYNQ v3.0.0](https://github.com/Xilinx/PYNQ/releases/tag/v3.0.0)
 </details>
+
+<details>
+<summary>ROS 2</summary>
+
+- [x] [Eloquent](https://docs.ros.org/en/eloquent/index.html)
+- [x] [Humble](https://docs.ros.org/en/humble/index.html)
+</details> 
+
 <details>
 <summary>Vivado/Vitis HLS</summary>
 
 - [x] 2022.1
 </details>  
-
+ 
 ## Installation
 
 ```
