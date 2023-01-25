@@ -1,5 +1,8 @@
 # ADD-ROS2-FPGA Nodes Example
-## Overview
+## Goal of This Sample
+The goal of this sample is to run **four ROS2-FPGA nodes** of add on `PYNQ-Z1`.  
+
+## Tested Environment
 The following environments were tested:
 - [x] Vivado 2022.1
 - [x] Vitis HLS 2022.1
@@ -12,9 +15,6 @@ The following environments were tested:
 - [x] Kria K260 (K26 SOM: XCK26-SFVC784-2LV-C)
   - OS: [Kria-PYNQ v3.0](https://github.com/Xilinx/Kria-PYNQ/releases/tag/v3.0)
   - ROS2: humble  
-
-## Goal of This Sample
-The goal of this sample is to run **four ROS2-FPGA nodes** of add on `PYNQ-Z1`.  
 
 ## Preparation
 Let's prepare before using meta-FOrEST.  

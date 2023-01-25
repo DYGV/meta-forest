@@ -1,4 +1,7 @@
 # FFT-ROS2-FPGA Nodes Example
+## Goal of This Sample
+The goal of this sample is to run **two ROS2-FPGA nodes** of 1024-point FFT processing on `PYNQ-Z1`.  
+
 ## Overview
 This is a meta-FOrEST sample using C++ code that processes FFT using FFT Library.  
 The following environments were tested:
@@ -9,9 +12,7 @@ The following environments were tested:
   - ROS2: eloquent
 - [x] M-KUBOS(xczu19eg-ffvc1760-2-i)
   - OS: PYNQ v2.5
-  - ROS2: eloquent 
-## Goal of This Sample
-The goal of this sample is to run **two ROS2-FPGA nodes** of 1024-point FFT processing on `PYNQ-Z1`.  
+  - ROS2: eloquent  
 
 ## Preparation
 Let's prepare before using meta-FOrEST.  
