@@ -32,9 +32,9 @@ class FpgaDriver:
     ):
         ros2_in = ROS2Map.message_file(ros2_msg_pkg, ros2_msg_intf_in)
         ros2_out = ROS2Map.message_file(ros2_msg_pkg, ros2_msg_intf_out)
-        try:
+        if hasattr(self.overlay.parser, "pins"):
             io_map = generate_map(self.overlay.parser, user_ip_name, ros2_in, ros2_out)
-        except:
+        else:
             bit = self.overlay.bitfile_name
             io_map = generate_map(HWHMap.get_hwh(bit), user_ip_name, ros2_in, ros2_out)
         return (io_map.input, io_map.output)

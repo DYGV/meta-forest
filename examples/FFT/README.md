@@ -72,7 +72,7 @@ meta-forest gen_node \
 ```  
 <img src="./resources/dev_ws_tree.png" width="40%" height="40%">  
 
-  
+After launch the FPGA node as root user, check if you can see the topics in the `ros2 topic list` in another terminal before launch the Talker/Listener node. If not, you may need to run the Talker/Listener node as root user as well as the FPGA node.  
 ```
 ros2 launch fft_fpga_node fpga_node_launch.py # as root
 ros2 launch fft_fpga_node listener_launch.py
