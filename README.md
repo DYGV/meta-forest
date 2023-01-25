@@ -6,6 +6,26 @@ Currently, meta-FOrEST has the following features:
 - [x] Multiple ROS2-FPGA Nodes Generation  
 - [x] Automatic Generation of a Vivado Block Design with multiple IP cores
 
+## Supported Environment
+<details>
+<summary>FPGA SoC Boards</summary>
+
+- [x] [PYNQ-Z1](https://digilent.com/reference/programmable-logic/pynq-z1/start)
+- [x] [M-KUBOS](https://www.paltek.co.jp/en/design/original/m-kubos/index.html)
+- [x] [Kria KR260, KV260 (K26 SOM)](https://www.xilinx.com/products/som/kria/k26c-commercial.html)
+</details>  
+
+<details>
+<summary>Operating System on FPGA SoC Board</summary>
+
+- [x] [PYNQ v2.5](https://github.com/Xilinx/PYNQ/releases/tag/v2.5)
+- [x] [PYNQ v3.0.0](https://github.com/Xilinx/PYNQ/releases/tag/v3.0.0)
+</details>
+<details>
+<summary>Vivado/Vitis HLS</summary>
+
+- [x] 2022.1
+</details>  
 
 ## Installation
 
