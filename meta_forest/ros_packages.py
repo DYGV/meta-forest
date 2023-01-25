@@ -12,31 +12,7 @@ from .helpers import (
 )
 
 
-def _build_io_maps(config_dict):
-    io_maps = {"map_num": {}, "maps": {}}
-    ip_num = 0
-    for ip_name, ip_details in config_dict.items():
-        ip_num += 1
-        ip_count = ip_details[0]["count"]
-        ip_signals = ip_details[1]["signals"]
-        io_maps["maps"].update({ip_num: {"input": {}, "output": {}}})
-
-        for count in range(ip_count):
-            io_maps["map_num"].update({f"{ip_name}_{count}": ip_num})
-        for signal in ip_signals:
-            if signal["direction"] == "in":
-                direction = "input"
-            elif signal["direction"] == "out":
-                direction = "output"
-            io_map = {}
-
-            signal_name = signal["name"]
-            io_map["type"] = signal["type"]
-            io_maps["maps"][ip_num][direction][signal_name] = io_map
-    return io_maps
-
-
-def build_packages_with_colcon(dev_ws, packages_list):
+def _build_packages_with_colcon(dev_ws, packages_list):
     run_sys_cmd(
         ["colcon build --packages-select " + " ".join(packages_list)],
         cwd=dev_ws,
@@ -48,7 +24,7 @@ class MessagePackage:
         params = Params()
         params.project = f"{args.package_name_prefix}_interface"
         params.dev_ws = args.workspace
-        params.io_maps = args.ip  # _build_io_maps(args.ip)
+        params.io_maps = args.ip
         return params
 
     def _get_msg_files(self, params):
@@ -374,6 +350,7 @@ def generate_packages(args):
     node_package = NodePackage()
     message_package_params = message_package._configure_params(args)
     node_package_params = node_package._configure_params(args)
+
     logger.info("Generating the ROS2 package for the FPGA node messages")
     message_package._create(message_package_params)
 
@@ -381,7 +358,7 @@ def generate_packages(args):
     node_package._create(node_package_params)
 
     logger.info("Building the ROS2 packages")
-    build_packages_with_colcon(
+    _build_packages_with_colcon(
         args.workspace,
         [message_package_params.project, node_package_params.project],
     )
