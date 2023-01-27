@@ -34,7 +34,6 @@ class HWHMap:
 
     def configure(self):
         target_ip_dict = self.hwh.ip_dict.get(self.target_ip)
-        # target_ip_dict = self.hwh.get(self.target_ip)
 
         if not target_ip_dict:
             return
@@ -60,7 +59,6 @@ class HWHMap:
                 dma.configure()
                 address_offset = -1
                 data_width = dma.data_width
-                direction = dma.direction
                 axi_dma = dma.axi_dma_name
                 protocol = "stream"
             transfer_data_map = IOMap()
@@ -70,13 +68,6 @@ class HWHMap:
             transfer_data_map.axi_dma = axi_dma
             transfer_data_map.protocol = protocol
             self.transfer_data_maps.append(transfer_data_map)
-
-    def filter_by_direction(self, direction_filter="*"):
-        transfer_data_maps = []
-        for data_map in self.transfer_data_maps:
-            if data_map.direction == direction_filter or direction_filter == "*":
-                transfer_data_maps.append(data_map)
-        return transfer_data_maps
 
     def filter_by_name(self, names_filter):
         transfer_data_maps = []

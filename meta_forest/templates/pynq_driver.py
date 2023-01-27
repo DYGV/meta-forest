@@ -1,9 +1,9 @@
-import logging
+import struct
 
 import numpy as np
-from pynq import MMIO, Overlay, PL, allocate
+from pynq import Overlay, PL, allocate
 
-from .io_maps import *
+from .io_maps import HWHMap, ROS2Map, generate_map
 
 
 class FpgaDriver:
@@ -146,9 +146,9 @@ class FpgaDriver:
         alloc_buffer = signal["alloc_buffer"]
         protocol = signal["protocol"]
         if protocol == "stream":
-            self.in_map[signal_name]["alloc_buffer"][:] = input_data
+            alloc_buffer[:] = input_data
         elif protocol == "m_axi":
-            self.in_map[signal_name]["alloc_buffer"][:] = input_data
+            alloc_buffer[:] = input_data
         elif protocol == "lite":
             if is_array:
                 if signal_type == "int":
@@ -210,7 +210,6 @@ class FpgaDriver:
         val = [0] * array_size
         n_exact = array_size // 4
         n_last = array_size % 4
-        padding = 4 - n_last
         addr = signal.get("address_offset")
         for i in range(n_exact):
             result = self.user_ip.read(addr).to_bytes(4, "little")
@@ -240,7 +239,7 @@ class FpgaDriver:
             val[i] = self.ieee_to_dec(val_ieee, "float")
         return val
 
-    def read_float64_array_lite(self):
+    def read_float64_array_lite(self, signal):
         array_size = signal.get("array_size")
         val = [0] * array_size
         array_head = signal.get("address_offset")
