@@ -5,16 +5,16 @@ The goal of this sample is to run **two ROS2-FPGA nodes** of 1024-point FFT proc
 
 ## Tested Environment
 The following environments were tested:
-- [x] Vivado 2022.1
-- [x] Vitis HLS 2022.1
-- [x] PYNQ-Z1(xc7z020clg400-1)
-  - OS: PYNQ v2.5
-  - ROS2: eloquent
-- [x] M-KUBOS(xczu19eg-ffvc1760-2-i)
-  - OS: PYNQ v2.5
+- [x] Vivado 2022.1  
+- [x] Vitis HLS 2022.1  
+- [x] PYNQ-Z1 (xc7z020clg400-1)  
+  - OS: PYNQ v2.5  
   - ROS2: eloquent  
-- [x] Kria KR260 (K26 SOM: XCK26-SFVC784-2LV-C)
-  - OS: [Kria-PYNQ v3.0](https://github.com/Xilinx/Kria-PYNQ/releases/tag/v3.0)
+- [x] M-KUBOS(xczu19eg-ffvc1760-2-i)  
+  - OS: PYNQ v2.5  
+  - ROS2: eloquent   
+- [x] Kria KR260 (K26 SOM: XCK26-SFVC784-2LV-C)  
+  - OS: [Kria-PYNQ v3.0](https://github.com/Xilinx/Kria-PYNQ/releases/tag/v3.0)  
   - ROS2: humble  
 
 ## Preparation
@@ -80,9 +80,9 @@ ros2 launch fft_fpga_node talker_launch.py
 ```  
 It works!
 
-- Left: Talker node feeding data (input data source) into ROS2-FPGA node
-- Center: ROS2-FPGA node performing FFT processing
-- Right: Listener node receiving output from ROS2-FPGA node
+- Left: Talker node feeding data (input data source) into ROS2-FPGA node  
+- Center: ROS2-FPGA node performing FFT processing  
+- Right: Listener node receiving output from ROS2-FPGA node  
 
 <img src="./resources/fft_process.png" width="50%" height="50%">
 

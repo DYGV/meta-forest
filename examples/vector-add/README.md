@@ -4,10 +4,10 @@ The goal of this sample is to run **eight ROS2-FPGA nodes** of vector add on `KR
 
 ## Tested Environment
 The following environments were tested:
-- [x] Vivado 2022.1
-- [x] Vitis HLS 2022.1
-- [x] Kria KR260 (K26 SOM: XCK26-SFVC784-2LV-C)
-  - OS: [Kria-PYNQ v3.0](https://github.com/Xilinx/Kria-PYNQ/releases/tag/v3.0)
+- [x] Vivado 2022.1  
+- [x] Vitis HLS 2022.1  
+- [x] Kria KR260 (K26 SOM: XCK26-SFVC784-2LV-C)  
+  - OS: [Kria-PYNQ v3.0](https://github.com/Xilinx/Kria-PYNQ/releases/tag/v3.0)  
   - ROS2: humble  
 
 ## Preparation
@@ -73,9 +73,9 @@ ros2 launch vadd_fpga_node talker_launch.py
 ```  
 It works!
 
-- Left: Talker node feeding data (input data source) into ROS2-FPGA node
-- Center: ROS2-FPGA node vector add processing
-- Right: Listener node receiving output from ROS2-FPGA node
+- Left: Talker node feeding data (input data source) into ROS2-FPGA node  
+- Center: ROS2-FPGA node vector add processing  
+- Right: Listener node receiving output from ROS2-FPGA node  
 
 <img src="./resources/vadd_process.png" width="50%" height="50%">
 

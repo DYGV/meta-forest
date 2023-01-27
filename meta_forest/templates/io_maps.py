@@ -141,7 +141,6 @@ class ROS2Map:
             message_package,
             get_interface_path(f"{message_package}/msg/{message_interface}"),
         )
-        self.configure()
 
     def configure(self):
         for field in self.message_spec.fields:
