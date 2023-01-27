@@ -1,4 +1,4 @@
-# FFT-ROS2-FPGA Nodes Example
+# ROS2-FPGA Nodes Example -FFT-
 ## Goal of This Sample
 The goal of this sample is to run **two ROS2-FPGA nodes** of 1024-point FFT processing on `PYNQ-Z1`.   
 ![system_configure](./resources/system_configure.svg)  
@@ -31,8 +31,8 @@ When the process is finished, you will see a directory named `vitis_hls`.
 Please set up the path for Vivado before executing `meta-forest gen_bd` command. In our environment, we set the following.
 ```
 source /tools/Xilinx/Vivado/2022.1/settings64.sh
-```  
-
+```    
+You can create a block design with the following command. The parameter values should be adapted to your environment.  
 ```
 meta-forest gen_bd \
  --ip_directory ./vitis_hls/solution1  \
@@ -57,7 +57,7 @@ Please set up the path for ROS2 before executing `meta-forest gen_node` command.
 source /opt/ros/eloquent/setup.bash
 ```
 
-By executing the code below, the code will be generated in the ROS2 workspace as shown in the image.  
+By executing the code below, the code will be generated in the ROS2 workspace as shown in the image. The `workspace` and `bitstream` value should be adapted to your own environment.  
 
 ```
 meta-forest gen_node \

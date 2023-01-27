@@ -46,9 +46,15 @@ class HWHMap:
                 register.configure()
                 address_offset = register.address_offset
                 data_width = register.data_width
-                direction = register.diretion
                 axi_dma = ""
                 protocol = "lite"
+            elif registers.get(f"{x}_1"):
+                register = Register(registers.get(f"{x}_1"))
+                register.configure()
+                address_offset = register.address_offset
+                data_width = register.data_width
+                axi_dma = ""
+                protocol = "m_axi"
             else:
                 dma = DMA_INTF(self.hwh, x, self.target_ip)
                 dma.configure()
@@ -60,9 +66,9 @@ class HWHMap:
             transfer_data_map = IOMap()
             transfer_data_map.name = x
             transfer_data_map.data_width = data_width
-            transfer_data_map.direction = direction
             transfer_data_map.address_offset = address_offset
             transfer_data_map.axi_dma = axi_dma
+            transfer_data_map.protocol = protocol
             self.transfer_data_maps.append(transfer_data_map)
 
     def filter_by_direction(self, direction_filter="*"):
@@ -72,6 +78,15 @@ class HWHMap:
                 transfer_data_maps.append(data_map)
         return transfer_data_maps
 
+    def filter_by_name(self, names_filter):
+        transfer_data_maps = []
+        for data_map in self.transfer_data_maps:
+            for name_filter in names_filter:
+                if data_map.name == name_filter:
+                    transfer_data_maps.append(data_map)
+        return transfer_data_maps
+
+
 
 class Register:
     def __init__(self, register):
@@ -80,16 +95,12 @@ class Register:
     def configure(self):
         self.address_offset = self.register.get("address_offset")
         self.data_width = self.register.get("size")
-        self.diretion = (
-            "input" if self.register.get("access") == "write-only" else "output"
-        )
 
 
 class DMA_INTF:
     def __init__(self, hwh, signal_name, target_ip):
         self.target_ip = target_ip
         self.axi_dma_name = ""
-        self.direction = ""
         self.data_width = 0
         self.hwh = hwh
         self.signal_name = signal_name
@@ -166,9 +177,9 @@ def generate_map(hwh, target_ip, parsed_message_file_in, parsed_message_file_out
     signal_names_in = [vars(signal_name)["name"] for signal_name in ros2_maps_in.maps]
     signal_names_out = [vars(signal_name)["name"] for signal_name in ros2_maps_out.maps]
 
-    hwh_maps = HWHMap(hwh, target_ip, signal_names_in + signal_names_out)
-    hwh_maps_input = hwh_maps.filter_by_direction("input")
-    hwh_maps_output = hwh_maps.filter_by_direction("output")
+    hwh_maps_input = HWHMap(hwh, target_ip, signal_names_in).transfer_data_maps
+    hwh_maps_output = HWHMap(hwh, target_ip, signal_names_out).transfer_data_maps
+
     io_map = IOMap()
     io_map.input = IOMap._merge(ros2_maps_in.maps, hwh_maps_input)
     io_map.output = IOMap._merge(ros2_maps_out.maps, hwh_maps_output)

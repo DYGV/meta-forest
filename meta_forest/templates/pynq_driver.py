@@ -1,7 +1,7 @@
 import logging
 
 import numpy as np
-from pynq import MMIO, Overlay, allocate
+from pynq import MMIO, Overlay, PL, allocate
 
 from .io_maps import *
 
@@ -22,7 +22,7 @@ class FpgaDriver:
         self.in_map, self.out_map = self._init_io_map(
             user_ip_name, ros2_msg_pkg, ros2_msg_intf_in, ros2_msg_intf_out
         )
-        self.setup_dma_ip()
+        self._setup_ip_core()
 
     def is_loaded(self):
         return True
@@ -41,6 +41,7 @@ class FpgaDriver:
 
     @classmethod
     def program_fpga(cls, bitfile):
+        PL.reset()
         return Overlay(bitfile)
 
     @property
@@ -60,53 +61,75 @@ class FpgaDriver:
         dtype = ""
         dtype += "u" if is_unsigned else ""
         dtype += primitive_type
-        dtype += data_width
+        dtype += str(data_width)
         cls_dtype = getattr(np, dtype)
         return allocate(shape=(array_size,), dtype=cls_dtype)
 
-    def setup_dma_ip(self):
-        self.dma_signal_name_in = []
-        self.dma_signal_name_out = []
+    def _setup_ip_core(self):
+        self.stream_signal_name_in = []
+        self.stream_signal_name_out = []
+        self.burst_signal_name_in = []
+        self.burst_signal_name_out = []
         for signal, value in self.in_map.items():
-            self.in_map[signal]["dma_buffer"] = None
-            if len(value["axi_dma"]) > 0:
-                self.dma_signal_name_in.append(signal)
+            self.in_map[signal]["alloc_buffer"] = None
+            protocol = self.in_map[signal]["protocol"]
+            if protocol == "stream":
+                self.stream_signal_name_in.append(signal)
+                self.in_map[signal]["alloc_buffer"] = self._allocate_pynq_buffer(value)
                 self.in_map[signal]["axi_dma_ip"] = getattr(
                     self.overlay, value["axi_dma"]
                 )
-                self.in_map[signal]["dma_buffer"] = self._allocate_pynq_buffer(value)
+            if protocol == "m_axi":
+                self.burst_signal_name_in.append(signal)
+                self.in_map[signal]["alloc_buffer"] = self._allocate_pynq_buffer(value)
 
         for signal, value in self.out_map.items():
-            self.out_map[signal]["dma_buffer"] = None
-            if len(value["axi_dma"]) > 0:
-                self.dma_signal_name_out.append(signal)
+            self.out_map[signal]["alloc_buffer"] = None
+            protocol = self.out_map[signal]["protocol"]
+            if protocol == "stream":
+                self.stream_signal_name_out.append(signal)
+                self.out_map[signal]["alloc_buffer"] = self._allocate_pynq_buffer(value)
                 self.out_map[signal]["axi_dma_ip"] = getattr(
                     self.overlay, value["axi_dma"]
                 )
-                self.out_map[signal]["dma_buffer"] = self._allocate_pynq_buffer(value)
+            if protocol == "m_axi":
+                self.burst_signal_name_out.append(signal)
+                self.out_map[signal]["alloc_buffer"] = self._allocate_pynq_buffer(value)
 
-    def cmd_dma_transfer(self):
-        for signal_name in self.dma_signal_name_in:
+    def cmd_stream_transfer(self):
+        for signal_name in self.stream_signal_name_in:
             axi_dma_ip = self.in_map[signal_name]["axi_dma_ip"]
-            dma_buffer = self.in_map[signal_name]["dma_buffer"]
-            axi_dma_ip.sendchannel.transfer(dma_buffer)
-        for signal_name in self.dma_signal_name_out:
+            alloc_buffer = self.in_map[signal_name]["alloc_buffer"]
+            axi_dma_ip.sendchannel.transfer(alloc_buffer)
+        for signal_name in self.stream_signal_name_out:
             axi_dma_ip = self.out_map[signal_name]["axi_dma_ip"]
-            dma_buffer = self.out_map[signal_name]["dma_buffer"]
-            axi_dma_ip.recvchannel.transfer(dma_buffer)
+            alloc_buffer = self.out_map[signal_name]["alloc_buffer"]
+            axi_dma_ip.recvchannel.transfer(alloc_buffer)
+
+    def cmd_burst_transfer(self):
+        for signal_name in self.burst_signal_name_in:
+            alloc_buffer_address = self.in_map[signal_name]["alloc_buffer"].device_address
+            signal_address_offset = self.in_map[signal_name]["address_offset"]
+            self.user_ip.write(signal_address_offset, alloc_buffer_address)
+        for signal_name in self.burst_signal_name_out:
+            alloc_buffer_address = self.out_map[signal_name]["alloc_buffer"].device_address
+            signal_address_offset = self.out_map[signal_name]["address_offset"]
+            self.user_ip.write(signal_address_offset, alloc_buffer_address)
+
 
     def do_calc(self):
-        self.cmd_dma_transfer()
+        self.cmd_stream_transfer()
+        self.cmd_burst_transfer()
         self.user_ip.write(0x00, 1)
         self.wait_dma_transfer()
         self.wait_result()
 
     def wait_dma_transfer(self):
-        for signal_name in self.dma_signal_name_in:
+        for signal_name in self.stream_signal_name_in:
             axi_dma_ip = self.in_map[signal_name]["axi_dma_ip"]
             if axi_dma_ip.sendchannel.running:
                 axi_dma_ip.sendchannel.wait()
-        for signal_name in self.dma_signal_name_out:
+        for signal_name in self.stream_signal_name_out:
             axi_dma_ip = self.out_map[signal_name]["axi_dma_ip"]
             if axi_dma_ip.recvchannel.running:
                 axi_dma_ip.recvchannel.wait()
@@ -120,10 +143,12 @@ class FpgaDriver:
         signal_type = signal["type"]
         is_array = signal["is_array"]
         data_width = signal["data_width"]
-        dma_buffer = signal["dma_buffer"]
-        protocol = "lite" if dma_buffer is None else "stream"
+        alloc_buffer = signal["alloc_buffer"]
+        protocol = signal["protocol"]
         if protocol == "stream":
-            self.in_map[signal_name]["dma_buffer"][:] = input_data
+            self.in_map[signal_name]["alloc_buffer"][:] = input_data
+        elif protocol == "m_axi":
+            self.in_map[signal_name]["alloc_buffer"][:] = input_data
         elif protocol == "lite":
             if is_array:
                 if signal_type == "int":
@@ -156,11 +181,15 @@ class FpgaDriver:
         signal_type = signal["type"]
         is_array = signal["is_array"]
         data_width = signal["data_width"]
-        protocol = "stream" if len(signal["axi_dma"]) > 0 else "lite"
-        dma_buffer = signal["dma_buffer"]
+        protocol = signal["protocol"]
+        alloc_buffer = signal["alloc_buffer"]
         if protocol == "stream":
-            val = np.zeros(shape=dma_buffer.shape, dtype=dma_buffer.dtype)
-            val[:] = dma_buffer[:]
+            val = np.zeros(shape=alloc_buffer.shape, dtype=alloc_buffer.dtype)
+            val[:] = alloc_buffer[:]
+            return val
+        elif protocol == "m_axi":
+            val = np.zeros(shape=alloc_buffer.shape, dtype=alloc_buffer.dtype)
+            val[:] = alloc_buffer[:]
             return val
         elif protocol == "lite":
             if is_array:

@@ -22,6 +22,7 @@ def generate_launch_description():
                     }
                 ],
                 output="screen",
+                emulate_tty=True,
             )
             for ip_name, map_num in {{params.ip_map_nums}}.items()
         ]

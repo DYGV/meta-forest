@@ -116,10 +116,13 @@ proc add_vivado_bd_ip { ip_name number {library "hls"} {version 1.0} } {
         set ip_list_len [llength [get_bd_cells -quiet -patterns "*${ip_name}_*" ]]
         set added_ip [create_bd_cell -type ip -vlnv xilinx.com:$library:$ip_name:$version ${ip_name}_${ip_list_len}]
         set axis_intf_pin_list [get_intf ${ip_name}_${ip_list_len} "axis"]
+        set maxi_intf_pin_list [get_intf ${ip_name}_${ip_list_len} "aximm" "Master"]
         # Add DMA circuit if AXIS is included in the I/O of the user circuit
         if { [llength $axis_intf_pin_list] > 0 } {
             open_ps_hp
             add_vivado_bd_ip_axi_dma $axis_intf_pin_list
+        } elseif  { [llength $maxi_intf_pin_list] > 0 } {
+            open_ps_hp
         }
     }
     if { [info exists added_ip ] } {
@@ -275,7 +278,7 @@ proc connect_axi_interconnect_hp_to_master { } {
     # Connect HP port and IP core master with AXI-Interconnect
 
     set m_axi_pins [get_bd_intf_pins -quiet \
-                    -of_objects [lsort -dictionary [get_bd_cells -quiet -filter { VLNV =~ "*:*:axi_dma:*"}]] \
+                    -of_objects [lsort -dictionary [get_bd_cells -quiet -filter { VLNV =~ "*:hls:*:*" || VLNV =~ "*:*:axi_dma:*"}]] \
                     -filter {MODE == Master && CONFIG.Protocol == AXI4}]
     set m_axi_pins_len [llength $m_axi_pins]
     if { $m_axi_pins_len == 0} {
