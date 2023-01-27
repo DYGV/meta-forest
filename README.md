@@ -56,9 +56,9 @@ You can learn how to use meta-FOrEST through examples.
 - The types available for meta-FOrEST are the same as for [FOrEST's type support](https://github.com/ros2-forest/forest/tree/master/docs/tutorials#type-support)  
 - HLS data I/O must be implemented with AXI4 (M_AXI), AXI4-Lite or AXI4-Stream  
 - Ensure that the status register is allocated with s_axilite as follows  
-   ```c
-   #pragma HLS INTERFACE s_axilite port = return
-   ```
+  ```c
+  #pragma HLS INTERFACE s_axilite port = return
+  ```
 # Related Publications
 
 - [1] - D. Pinheiro Leal, M. Sugaya, H. Amano, T. Ohkawa "Automated Integration of High-Level Synthesis FPGA Modules with ROS2 Systems", International Conference on Field Programmable Technology (FPT), 2020.  

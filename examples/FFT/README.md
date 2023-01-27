@@ -1,6 +1,6 @@
 # ROS2-FPGA Nodes Example -FFT-
 ## Goal of This Sample
-The goal of this sample is to run **two ROS2-FPGA nodes** of 1024-point FFT processing on `PYNQ-Z1`.   
+The goal of this sample is to run **two ROS2-FPGA nodes** of 1024-point FFT processing on `PYNQ-Z1`.  
 ![system_configure](./resources/system_configure.svg)  
 
 ## Tested Environment

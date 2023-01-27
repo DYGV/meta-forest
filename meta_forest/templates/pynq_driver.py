@@ -225,7 +225,7 @@ class FpgaDriver:
     def read_int32_array_lite(self, signal):
         array_size = signal.get("array_size")
         val = [0] * array_size
-        head = signal.get("address_offset") 
+        head = signal.get("address_offset")
         for i in range(array_size):
             val[i] = self.user_ip.read(head + (4 * i))
         return val
@@ -261,7 +261,7 @@ class FpgaDriver:
         n_last = array_size % 4
         padding = 4 - n_last
         addr = array_head
-        for i in range(n_exact):
+        for _ in range(n_exact):
             partition = byte_arr[lower_lim:upper_lim]
             self.user_ip.write(addr, partition)
             lower_lim += 4
