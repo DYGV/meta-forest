@@ -4,6 +4,8 @@ import sys
 
 
 class Level(enum.Enum):
+    """Logger level definition in the logging module"""
+
     debug = logging.DEBUG
     info = logging.INFO
     warning = logging.WARNING
@@ -11,6 +13,19 @@ class Level(enum.Enum):
 
 
 def _setup_logger(log_level):
+    """Internal logger setting
+
+    Parameters
+    ----------
+    log_level: str
+        Logger levels such as "info" and "debug"
+
+    Returns
+    -------
+    -1 or 0: int
+        Success or Failure
+
+    """
     logger = logging.getLogger("meta-FOrEST")
     logger_handler = logging.StreamHandler()
     logger_handler.setFormatter(
@@ -30,5 +45,11 @@ def _setup_logger(log_level):
 
 
 def setup_logger(args):
+    """logger setting
+
+    Parameters
+    ----------
+    args: argparse.Namespace
+    """
     if _setup_logger(args.log_level) == -1:
         sys.exit(1)

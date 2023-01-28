@@ -1,6 +1,6 @@
 # meta-FOrEST
-<img src="https://user-images.githubusercontent.com/8480644/210734598-63b3e675-0ca1-4d08-b015-bb0e0ec21a56.png" width="60%" height="60%">  
-
+<img src="./docs/multiple_ROS2FPGA.svg" width="60%" height="60%">  
+  
 **meta-FOrEST** is an automatic generation tool for ROS 2 nodes integrating multiple FPGA logic into a ROS 2 system (ROS2-FPGA nodes). FPGA and [ROS 2](https://docs.ros.org/en/humble/index.html) can be used to accelerate calculation processing and improve design productivity. meta-FOrEST (also [FOrEST](https://github.com/ros2-forest/forest)) supports the [PYNQ](http://www.pynq.io/) platform installed on a Zynq SoC. With ROS 2 nodes running on a Zynq SoC, network communication with other machines is possible, facilitating load balancing and parallel processing with FPGA. meta-FOrEST users need only High-Level Synthesis. meta-FOrEST automatically integrates the IP cores into the ROS 2 system. meta-FOrEST users can run ROS2-FPGA nodes without having to write any programs.  
 Currently, meta-FOrEST has the following features:  
 - [x] Multiple ROS2-FPGA Nodes Generation  

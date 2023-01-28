@@ -13,6 +13,19 @@ from .helpers import (
 
 
 def _build_packages_with_colcon(dev_ws, packages_list):
+    """Generate a Vivado block design
+
+    Parameters
+    ----------
+    dev_ws: str
+        Workspace of ROS2 packages
+    packages_list: List[str]
+        Names of ROS2 package to build
+
+    Returns
+    -------
+    None
+    """
     run_sys_cmd(
         ["colcon build --packages-select " + " ".join(packages_list)],
         cwd=dev_ws,
@@ -20,7 +33,19 @@ def _build_packages_with_colcon(dev_ws, packages_list):
 
 
 class MessagePackage:
+    """Class to create a package of ROS2 custom message"""
+
     def _configure_params(self, args):
+        """Configure parameters to create a ROS2 package
+
+        Parameters
+        ----------
+        args: argparse.Namespace
+
+        Returns
+        -------
+        params: Params
+        """
         params = Params()
         params.project = f"{args.package_name_prefix}_interface"
         params.dev_ws = args.workspace
@@ -28,6 +53,17 @@ class MessagePackage:
         return params
 
     def _get_msg_files(self, params):
+        """Get ROS2 message file names
+
+        Parameters
+        ----------
+        params: Params
+
+        Returns
+        -------
+        msg_files: List[str]
+            List of ROS2 message file names
+        """
         msg_files = []
         for map_num in range(1, len(params.io_maps) + 1):
             msg_files.append(os.path.join("msg", f"FpgaIn{map_num}.msg"))
@@ -35,17 +71,50 @@ class MessagePackage:
         return msg_files
 
     def _make_cmakelists_txt_params(self, params):
-        return {
-            "project": params.project,
-            "msg_files": self._get_msg_files(params),
-        }
+        """Make parameters dict to render in the CMakeLists.txt template file
+
+        Parameters
+        ----------
+        params: Params
+
+        Returns
+        -------
+        Dict
+            Dictionary of parameters
+        """
+
+        return {"project": params.project, "msg_files": self._get_msg_files(params)}
 
     def _make_package_xml_params(self, params):
+        """Make parameters dict to render in the package.xml template file
+
+        Parameters
+        ----------
+        params: Params
+
+        Returns
+        -------
+        Dict
+            Dictionary of parameters
+        """
+
         return {
             "project": params.project,
         }
 
     def _process_msg_file(self, filename, io, io_type):
+        """Create the contents of custom messages
+
+        Parameters
+        ----------
+        filename: str
+        io: List
+        io_type: List
+
+        Returns
+        -------
+        None
+        """
         ros2_type = ""
 
         for i in range(len(io)):
@@ -61,10 +130,20 @@ class MessagePackage:
         f.close()
 
     def _create_msg_file(self, params):
+        """Create custom messages
+
+        Parameters
+        ----------
+        params: Params
+
+        Returns
+        -------
+        None
+        """
         msg_dir = os.path.join(params.dev_ws, "src", params.project, "msg")
         if not os.path.exists(msg_dir):
             os.makedirs(msg_dir)
-        for map_num, io_map in enumerate(params.io_maps, 1):  # ["maps"].items():
+        for map_num, io_map in enumerate(params.io_maps, 1):
             fpga_in_msg = f"FpgaIn{map_num}"
             fpga_out_msg = f"FpgaOut{map_num}"
             self._process_msg_file(fpga_in_msg, io_map.input, io_map.input_type)
@@ -80,6 +159,16 @@ class MessagePackage:
             )
 
     def _render(self, params):
+        """Render custom message packages
+
+        Parameters
+        ----------
+        params: Params
+
+        Returns
+        -------
+        None
+        """
         if not os.path.exists(TEMPORARY_OUTPUT_DIR):
             os.makedirs(TEMPORARY_OUTPUT_DIR)
         render_params = self._make_package_xml_params(params)
@@ -97,6 +186,17 @@ class MessagePackage:
         )
 
     def _create(self, params):
+        """Create a custom message package
+
+        Parameters
+        ----------
+        params: Params
+
+        Returns
+        -------
+        None
+
+        """
         src_dir = os.path.join(params.dev_ws, "src")
 
         if not os.path.exists(src_dir):
@@ -121,7 +221,20 @@ class MessagePackage:
 
 
 class NodePackage:
+    """Class to create a packages of ROS2-FPGA nodes"""
+
     def _configure_params(self, args):
+        """Configure parameters to create a ROS2 package
+
+        Parameters
+        ----------
+        args: argparse.Namespace
+
+        Returns
+        -------
+        params: Params
+        """
+
         params = Params()
         params.project = f"{args.package_name_prefix}_fpga_node"
         params.project_interface = f"{args.package_name_prefix}_interface"
@@ -131,13 +244,26 @@ class NodePackage:
         params.bit_file = args.bitstream
         params.io_maps = args.ip
         params.qos = 10
-        params.ip_names_2d = self.get_all_ip_names(params.io_maps)
+        params.ip_names_2d = self._get_all_ip_names(params.io_maps)
         params.ip_names = list(chain.from_iterable(params.ip_names_2d))
-        params.ip_msg_table = self.get_ip_msg_table(params.ip_names_2d)
+        params.ip_msg_table = self._get_ip_msg_table(params.ip_names_2d)
         params.head_ip_name = params.ip_names[0]
         return params
 
-    def get_all_ip_names(self, io_maps):
+    def _get_all_ip_names(self, io_maps):
+        """Get IP core names with suffix
+
+
+        Parameters
+        ----------
+        io_maps: List
+
+
+        Returns
+        -------
+        ip_names: List
+            IP core names
+        """
         ip_names = []
         for i in range(len(io_maps)):
             name = io_maps[i].ip[0]
@@ -146,7 +272,17 @@ class NodePackage:
             ip_names.append(ip)
         return ip_names
 
-    def get_ip_msg_table(self, ip_names_2d):
+    def _get_ip_msg_table(self, ip_names_2d):
+        """Table containing IP core names and ROS2 message file suffix
+
+        Parameters
+        ----------
+        ip_names_2d: List
+
+        Returns
+        -------
+        table: Dict
+        """
         table = {}
         for i in range(1, len(ip_names_2d) + 1):
             ip_names = ip_names_2d[i - 1]
@@ -156,6 +292,17 @@ class NodePackage:
         return table
 
     def _render(self, params):
+        """Render ROS2-FPGA nodes packages
+
+        Parameters
+        ----------
+        params: Params
+
+        Returns
+        -------
+        None
+        """
+
         if not os.path.exists(TEMPORARY_OUTPUT_DIR):
             os.makedirs(TEMPORARY_OUTPUT_DIR)
 
@@ -247,6 +394,17 @@ class NodePackage:
         )
 
     def _create(self, params):
+        """Create a ROS2-FPGA nodes package
+
+        Parameters
+        ----------
+        params: Params
+
+        Returns
+        -------
+        None
+        """
+
         src_dir = os.path.join(params.dev_ws, "src")
 
         if not os.path.exists(src_dir):
@@ -345,6 +503,16 @@ class NodePackage:
 
 
 def generate_packages(args):
+    """Generate ROS2 package
+
+    Parameters
+    ----------
+    args: argparse.Namespace
+
+    Returns
+    -------
+    None
+    """
     logger = logging.getLogger("meta-FOrEST")
     message_package = MessagePackage()
     node_package = NodePackage()

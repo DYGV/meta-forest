@@ -25,14 +25,14 @@ class HWHMap:
         self.signal_names = signal_names
         self.hwh = hwh
         self.transfer_data_maps = []
-        self.configure()
+        self._configure()
 
     @classmethod
     def get_hwh(self, bitfile):
         hwh_file = hwh_parser.get_hwh_name(bitfile)
         return hwh_parser.HWH(hwh_file)
 
-    def configure(self):
+    def _configure(self):
         target_ip_dict = self.hwh.ip_dict.get(self.target_ip)
 
         if not target_ip_dict:
@@ -42,21 +42,21 @@ class HWHMap:
             signal_register = registers.get(x)
             if signal_register:
                 register = Register(signal_register)
-                register.configure()
+                register._configure()
                 address_offset = register.address_offset
                 data_width = register.data_width
                 axi_dma = ""
                 protocol = "lite"
             elif registers.get(f"{x}_1"):
                 register = Register(registers.get(f"{x}_1"))
-                register.configure()
+                register._configure()
                 address_offset = register.address_offset
                 data_width = register.data_width
                 axi_dma = ""
                 protocol = "m_axi"
             else:
                 dma = DMA_INTF(self.hwh, x, self.target_ip)
-                dma.configure()
+                dma._configure()
                 address_offset = -1
                 data_width = dma.data_width
                 axi_dma = dma.axi_dma_name
@@ -69,21 +69,12 @@ class HWHMap:
             transfer_data_map.protocol = protocol
             self.transfer_data_maps.append(transfer_data_map)
 
-    def filter_by_name(self, names_filter):
-        transfer_data_maps = []
-        for data_map in self.transfer_data_maps:
-            for name_filter in names_filter:
-                if data_map.name == name_filter:
-                    transfer_data_maps.append(data_map)
-        return transfer_data_maps
-
-
 
 class Register:
     def __init__(self, register):
         self.register = register
 
-    def configure(self):
+    def _configure(self):
         self.address_offset = self.register.get("address_offset")
         self.data_width = self.register.get("size")
 
@@ -104,7 +95,7 @@ class DMA_INTF:
     def _find_corresponding_axi_dma_pins(self):
         return fnmatch.filter(self.hwh.pins.keys(), f"{self.target_ip}/*TDATA")
 
-    def configure(self):
+    def _configure(self):
         self._find_corresponding_axi_dma()
         pins = self._find_corresponding_axi_dma_pins()
         for pin in pins:
@@ -142,7 +133,7 @@ class ROS2Map:
             get_interface_path(f"{message_package}/msg/{message_interface}"),
         )
 
-    def configure(self):
+    def _configure(self):
         for field in self.message_spec.fields:
             interface_map = IOMap()
             self.maps.append(interface_map)
@@ -162,8 +153,8 @@ class ROS2Map:
 def generate_map(hwh, target_ip, parsed_message_file_in, parsed_message_file_out):
     ros2_maps_in = ROS2Map(parsed_message_file_in)
     ros2_maps_out = ROS2Map(parsed_message_file_out)
-    ros2_maps_in.configure()
-    ros2_maps_out.configure()
+    ros2_maps_in._configure()
+    ros2_maps_out._configure()
     signal_names_in = [vars(signal_name)["name"] for signal_name in ros2_maps_in.maps]
     signal_names_out = [vars(signal_name)["name"] for signal_name in ros2_maps_out.maps]
 

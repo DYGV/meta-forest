@@ -8,6 +8,20 @@ from .vivado_block_design import generate_block_design
 
 
 def _build_arg_parser():
+    """meta-FOrEST command line argument builder
+
+    Create meta-FOrEST subcommands and parameters using argparse
+
+    Parameters
+    ----------
+    None
+
+    Returns
+    -------
+    parser: argparse.ArgumentParser
+        Parser of meta-FOrEST command
+    """
+
     parser = argparse.ArgumentParser(prog="meta-forest")
     parser.add_argument(
         "-v", "--version", action="version", version=f"%(prog)s {__version__}"
@@ -30,6 +44,16 @@ def _build_arg_parser():
 
 
 def _build_gen_block_design_parser(parser):
+    """Setting up the Vivado Block Design command (gen_bd)
+
+    Parameters
+    -------
+    parser: argparse.ArgumentParser
+
+    Returns
+    -------
+    None
+    """
     parser_block_design = parser.add_parser(
         "gen_bd",
         help="Generate a Vivado block design",
@@ -85,13 +109,14 @@ def _build_gen_block_design_parser(parser):
 
     parser_block_design.set_defaults(func=generate_block_design)
 
-    return parser_block_design
-
 
 class GroupedAction(argparse.Action):
+    """Custom Action in the argparse module"""
+
     groupspace = None
 
     def __call__(self, parser, namespace, values, nargs=None, option_string=None):
+        """Create a new Namespace each time --ip is passed as a command line argument"""
         group, dest = self.dest.split(".", 2)
         if dest == "ip":
             GroupedAction.groupspace = argparse.Namespace()
@@ -104,6 +129,17 @@ class GroupedAction(argparse.Action):
 
 
 def _build_gen_node_parser(parser):
+    """Setting up the ROS2-FPGA nodes generateion command (gen_bd)
+
+    Parameters
+    -------
+    parser: ArgumentParser
+
+    Returns
+    -------
+    None
+    """
+
     parser_gen_node = parser.add_parser(
         "gen_node",
         help="Generate ROS2-FPGA Nodes",
@@ -199,10 +235,10 @@ def _build_gen_node_parser(parser):
         default=argparse.SUPPRESS,
     )
     parser_gen_node.set_defaults(func=generate_packages)
-    return parser_gen_node
 
 
 def main():
+    """Entry point of meta-FOrEST"""
     parser = _build_arg_parser()
     args = parser.parse_args()
 

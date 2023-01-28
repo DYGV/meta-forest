@@ -10,15 +10,45 @@ TEMPLATE_DIR = os.path.join(PACKAGE_INSTALLED_DIR, "templates")
 
 
 class Params:
+    """Class for data container"""
+
     pass
 
 
 def run_sys_cmd(cmd, cwd=None):
-    # Helper function for running Linux commands
+    """Shell command execution
+
+    Parameters
+    ----------
+    cmd: str
+        Command to execute in the shell
+    cwd: str
+        Shell runtime directory
+
+    Returns
+    -------
+    None
+    """
+
     subprocess.run(cmd, cwd=cwd, stderr=sys.stderr, stdout=sys.stdout, shell=True)
 
 
 def render_to_template(template_file_name, output_file_path, params):
+    """Jinja2 template renderings
+
+    Parameters
+    ----------
+    template_file_name: str
+        Path of the template file to render
+    output_file_path: str
+        Path of the rendered file
+    params: dict
+        Parameters to render to the template file
+
+    Returns
+    -------
+    None
+    """
     env = Environment(loader=FileSystemLoader(TEMPLATE_DIR))
     template_file = env.get_template(template_file_name)
     f = open(output_file_path, "w")

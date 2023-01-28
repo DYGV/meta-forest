@@ -7,6 +7,16 @@ from .helpers import PACKAGE_INSTALLED_DIR, Params, run_sys_cmd
 
 
 def _configure_params(args):
+    """Configure parameters to create a block design
+
+    Parameters
+    ----------
+    args: argparse.Namespace
+
+    Returns
+    -------
+    params: Params
+    """
     params = Params()
     params.project = "vivado"
     params.ip_directory = args.ip_directory
@@ -36,6 +46,19 @@ def _configure_params(args):
 
 
 def _build_command(params):
+    """Build commands for running vivado in the shell
+
+    Parameters
+    ----------
+    params: Params
+        Parameters including project name and target parts
+
+    Returns
+    -------
+    command: str
+        String of built command
+    """
+
     args = (
         f"-project_name {params.project} "
         f"-device_part {params.board_part} "
@@ -59,6 +82,17 @@ def _build_command(params):
 
 
 def generate_block_design(args):
+    """Generate a Vivado block design
+
+    Parameters
+    ----------
+    args: argparse.Namespace
+
+    Returns
+    -------
+    None
+    """
+
     logger = logging.getLogger("meta-FOrEST")
     params = _configure_params(args)
     if not distutils.spawn.find_executable("vivado"):
