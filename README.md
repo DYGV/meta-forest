@@ -51,7 +51,8 @@ You can learn how to use meta-FOrEST through examples.
 - [simple-add](./examples/simple-add)
 - [vector-add](./examples/vector-add)
 - [Fast Fourier Transform](./examples/FFT)
- 
+- [simple-add + vector-add (Multiple Types of ROS2-FPGA Nodes)](./examples/multiple_types)
+
 ### Caution
 - The types available for meta-FOrEST are the same as for [FOrEST's type support](https://github.com/ros2-forest/forest/tree/master/docs/tutorials#type-support)  
 - HLS data I/O must be implemented with AXI4 (M_AXI), AXI4-Lite or AXI4-Stream  
