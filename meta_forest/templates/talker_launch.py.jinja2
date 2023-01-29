@@ -4,6 +4,7 @@ from launch import LaunchDescription
 
 
 def generate_launch_description():
+    ip_msg_table = {{ params.ip_msg_table }}
     return LaunchDescription(
         [
             Node(
@@ -18,12 +19,12 @@ def generate_launch_description():
                 parameters=[
                     {
                         "fpga_in_topic": "fpga_in_topic_%s" % ip_name,
-                        "msg_type_suffix": str(map_num),
+                        "msg_type_suffix": str(msg_suffix),
                     }
                 ],
                 output="screen",
                 emulate_tty=True,
             )
-            for ip_name, map_num in {{params.ip_map_nums}}.items()
+            for ip_name, msg_suffix in ip_msg_table.items()
         ]
     )

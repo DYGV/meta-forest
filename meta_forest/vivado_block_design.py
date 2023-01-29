@@ -17,11 +17,11 @@ def _configure_params(args):
     -------
     params: Params
     """
+
     params = Params()
     params.project = "vivado"
     params.ip_directory = args.ip_directory
     params.board_part = args.target_part
-
     params.auto_start_gui = 0
     params.auto_connect_block_design = 0
     params.to_step_write_bitstream = 0
@@ -30,7 +30,6 @@ def _configure_params(args):
         params.to_step_write_bitstream = 1
     elif args.step_to == "connect":
         params.auto_connect_block_design = 1
-
     ip_name_list = []
     ip_count_list = []
     for i in range(len(args.IP)):
@@ -41,7 +40,6 @@ def _configure_params(args):
             ip_count_list.append(count)
     params.ip_name_list = ip_name_list
     params.ip_count_list = ip_count_list
-
     return params
 
 

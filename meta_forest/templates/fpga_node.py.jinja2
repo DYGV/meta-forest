@@ -11,6 +11,7 @@ from .pynq_driver import *
 class FpgaNode(Node):
     def __init__(self):
         super().__init__("fpga_node")
+        self.get_logger().info("Setting Up ROS2-FPGA Node")
         self.init_ros2_parameters()
         self.fpga_driver = self.get_fpga_driver()
         self.init_subscriber()
@@ -47,11 +48,11 @@ class FpgaNode(Node):
             ("ros2_interface_pkg", "{{ params.ros2_interface_pkg }}"),
             ("ros2_interface_in", "{{ params.ros2_interface_in }}"),
             ("ros2_interface_out", "{{ params.ros2_interface_out }}"),
-            ("fpga_in_topic", "fpga_in_topic_{{ params.ip_name }}"),
-            ("fpga_out_topic", "fpga_out_topic_{{ params.ip_name }}"),
+            ("fpga_in_topic", "fpga_in_topic_{{ params.head_ip_name }}"),
+            ("fpga_out_topic", "fpga_out_topic_{{ params.head_ip_name }}"),
             ("program_fpga", True),
             ("bitfile_path", "{{ params.bitfile_path }}"),
-            ("user_ip", "{{ params.ip_name }}"),
+            ("user_ip", "{{ params.head_ip_name }}"),
         ]
         self.declare_parameters(namespace="", parameters=param_list)
         self.ros2_interface_pkg = self.get_parameter("ros2_interface_pkg").value

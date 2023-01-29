@@ -6,13 +6,15 @@ from launch import LaunchDescription
 def generate_launch_description():
     bitfile_path = "{{ params.bitfile_path }}"
     ros2_interface_pkg = "{{ params.ros2_interface_pkg }}"
-    ros2_interface_in = "{{ params.ros2_interface_in }}"
-    ros2_interface_out = "{{ params.ros2_interface_out }}"
+    ros2_interface_in_base = "{{ params.ros2_interface_in_base }}"
+    ros2_interface_out_base = "{{ params.ros2_interface_out_base }}"
     fpga_in_topic_prefix = "fpga_in_topic_"
     fpga_out_topic_prefix = "fpga_out_topic_"
-    ip_names = {{ params.ip_names }}
+    ip_msg_table = {{ params.ip_msg_table }}
 
+    print(f"Downloading {bitfile_path}")
     pynq_driver.FpgaDriver.program_fpga(bitfile_path)
+    print("Done")
 
     fpga_nodes = [
         Node(
@@ -28,8 +30,8 @@ def generate_launch_description():
                 {
                     "bitfile_path": bitfile_path,
                     "ros2_interface_pkg": ros2_interface_pkg,
-                    "ros2_interface_in": ros2_interface_in,
-                    "ros2_interface_out": ros2_interface_out,
+                    "ros2_interface_in": ros2_interface_in_base + str(msg_suffix),
+                    "ros2_interface_out": ros2_interface_out_base + str(msg_suffix),
                     "fpga_in_topic": fpga_in_topic_prefix + ip_name,
                     "fpga_out_topic": fpga_out_topic_prefix + ip_name,
                     "program_fpga": False,
@@ -40,6 +42,6 @@ def generate_launch_description():
             output="screen",
             emulate_tty=True,
         )
-        for ip_name in ip_names
+        for ip_name, msg_suffix in ip_msg_table.items()
     ]
     return LaunchDescription(fpga_nodes)

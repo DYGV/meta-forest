@@ -36,7 +36,6 @@ def _build_arg_parser():
     )
 
     sub_parser = parser.add_subparsers()
-
     _build_gen_block_design_parser(sub_parser)
     _build_gen_node_parser(sub_parser)
 
@@ -67,7 +66,6 @@ def _build_gen_block_design_parser(parser):
         action="append",
         help="Exported IP Path",
     )
-
     parser_block_design.add_argument(
         "-I",
         "--IP",
@@ -77,7 +75,6 @@ def _build_gen_block_design_parser(parser):
         action="append",
         help="IP Core Name; It is usually the top function of HLS.",
     )
-
     parser_block_design.add_argument(
         "-t",
         "--target_part",
@@ -86,7 +83,6 @@ def _build_gen_block_design_parser(parser):
         required=True,
         help="Target FPGA Part",
     )
-
     parser_block_design.add_argument(
         "-c",
         "--count",
@@ -96,7 +92,6 @@ def _build_gen_block_design_parser(parser):
         action="append",
         help="Number of IP Cores to be Added to the Block Design",
     )
-
     parser_block_design.add_argument(
         "-s",
         "--step_to",
@@ -106,7 +101,6 @@ def _build_gen_block_design_parser(parser):
         choices=["connect", "write_bitstream"],
         help="Steps on Vivado",
     )
-
     parser_block_design.set_defaults(func=generate_block_design)
 
 
@@ -159,14 +153,21 @@ def _build_gen_node_parser(parser):
         type=str,
         help="ROS2 Workspace Directory",
     )
-
     parser_gen_node.add_argument(
         "-t",
         "--test",
         action="store_true",
         help="Generate Talker/Listener Nodes",
     )
-
+    parser_gen_node.add_argument(
+        "-s",
+        "--step_to",
+        type=str,
+        metavar="STR",
+        default="build",
+        choices=["generate", "build"],
+        help="Selection of steps in ROS2 packages",
+    )
     parser_gen_node.add_argument(
         "-b",
         "--bitstream",
@@ -175,7 +176,6 @@ def _build_gen_node_parser(parser):
         type=str,
         help="Bitstream Path",
     )
-
     parser_gen_node.add_argument(
         "-I",
         "--IP",

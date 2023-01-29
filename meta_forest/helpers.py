@@ -49,6 +49,7 @@ def render_to_template(template_file_name, output_file_path, params):
     -------
     None
     """
+
     env = Environment(loader=FileSystemLoader(TEMPLATE_DIR))
     template_file = env.get_template(template_file_name)
     f = open(output_file_path, "w")

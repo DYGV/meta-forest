@@ -3,3 +3,9 @@ dist/
 build/
 __pycache__/
 _build/
+vitis_hls/
+vivado/
+*.log
+*.str
+*.jou
+

@@ -397,7 +397,7 @@ while { $seeking_index < $argc } {
             incr seeking_index
         }
         -ip_directories {
-            set ip_directories [lindex $argv $seeking_index]
+            lappend ip_directories [lindex $argv $seeking_index]
             incr seeking_index
         }
         -auto_connect {

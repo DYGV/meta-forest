@@ -5,25 +5,25 @@ from rclpy.node import Node
 from rosidl_runtime_py import get_interface_path
 from rosidl_adapter.parser import parse_message_file
 
-from {{ params.project }}.msg import *
+from {{ params.ros2_interface_pkg }}.msg import *
 
 
 class TalkerNode(Node):
     def __init__(self):
         super().__init__("talker")
         self.declare_parameter(
-            "fpga_in_topic", "fpga_in_topic_{{ params.ip_name }}"
+            "fpga_in_topic", "fpga_in_topic_{{ params.head_ip_name }}"
         )
         self.declare_parameter("msg_type_suffix", "1")
         fpga_in_topic = self.get_parameter("fpga_in_topic").value
         msg_type_suffix = self.get_parameter("msg_type_suffix").value
         self.FpgaIn = getattr(
-            sys.modules["{{ params.project }}.msg"], "FpgaIn" + msg_type_suffix
+            sys.modules["{{ params.ros2_interface_pkg }}.msg"], "FpgaIn" + msg_type_suffix
         )
         self.message_spec = parse_message_file(
-            "{{ params.project }}",
+            "{{ params.ros2_interface_pkg }}",
             get_interface_path(
-                "{{ params.project }}/msg/FpgaIn" + msg_type_suffix
+                "{{ params.ros2_interface_pkg }}/msg/FpgaIn" + msg_type_suffix
             ),
         )
         self.publisher_ = self.create_publisher(
