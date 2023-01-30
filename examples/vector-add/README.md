@@ -77,4 +77,6 @@ It works!
 - Right: Listener node receiving output from ROS2-FPGA node  
 
 ![vadd](./resources/vadd_process.png)  
+  
+![rosgraph](./resources/rosgraph.png)  
 
