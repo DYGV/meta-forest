@@ -439,8 +439,8 @@ def generate_packages(args):
     logger.info("Generating the ROS2 package for the FPGA node")
     node_package._create(node_package_params)
 
-    logger.info("Building the ROS2 packages")
     if args.step_to == "build":
+        logger.info("Building the ROS2 packages")
         _build_packages_with_colcon(
             args.workspace,
             [message_package_params.project, node_package_params.project],
