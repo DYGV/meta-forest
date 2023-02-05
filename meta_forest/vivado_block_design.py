@@ -1,9 +1,9 @@
-import distutils.spawn
 import logging
 import os
 import sys
 
-from .helpers import PACKAGE_INSTALLED_DIR, Params, run_sys_cmd
+from .helpers import (PACKAGE_INSTALLED_DIR, Params, find_executable,
+                      run_sys_cmd)
 
 
 def _configure_params(args):
@@ -92,10 +92,10 @@ def generate_block_design(args):
     """
 
     logger = logging.getLogger("meta-FOrEST")
-    params = _configure_params(args)
-    if not distutils.spawn.find_executable("vivado"):
-        logger.error("Vivado not found. Please setup Vivado")
+    if not find_executable("vivado"):
+        logger.error("Vivado not found")
         sys.exit(1)
+    params = _configure_params(args)
     command = _build_command(params)
     if command == -1:
         logger.error("Wrong way to specify IP")

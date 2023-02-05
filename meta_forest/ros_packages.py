@@ -1,10 +1,11 @@
 import logging
 import os
 import shutil
+import sys
 from itertools import chain
 
 from .helpers import (TEMPLATE_DIR, TEMPORARY_OUTPUT_DIR, Params,
-                      render_to_template, run_sys_cmd)
+                      find_executable, render_to_template, run_sys_cmd)
 
 
 def _build_packages_with_colcon(dev_ws, packages_list):
@@ -428,6 +429,15 @@ def generate_packages(args):
     """
 
     logger = logging.getLogger("meta-FOrEST")
+    if not find_executable("ros2"):
+        logger.error("ros2 not found")
+        sys.exit(1)
+    if not find_executable("colcon"):
+        logger.error("colcon not found")
+        sys.exit(1)
+    if not os.environ.get("ROS_DISTRO"):
+        logger.error("$ROS_DISTRO not found")
+        sys.exit(1)
     message_package = MessagePackage()
     node_package = NodePackage()
     message_package_params = message_package._configure_params(args)

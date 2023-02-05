@@ -1,4 +1,5 @@
 import os
+import shutil
 import subprocess
 import sys
 
@@ -13,6 +14,22 @@ class Params:
     """Class for data container"""
 
     pass
+
+
+def find_executable(executable):
+    """Search for executable using shutil module
+
+    Parameters
+    ----------
+    executable: str
+        Executable to search
+
+    Returns
+    -------
+    : str
+        The path to the executable if it exists, otherwise None
+    """
+    return shutil.which(executable)
 
 
 def run_sys_cmd(cmd, cwd=None):
