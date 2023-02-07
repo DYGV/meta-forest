@@ -11,11 +11,13 @@ from {{ params.ros2_interface_pkg }}.msg import *
 class TalkerNode(Node):
     def __init__(self):
         super().__init__("talker")
+        self.declare_parameter("timer_period", 2.0)
         self.declare_parameter(
             "fpga_in_topic", "fpga_in_topic_{{ params.head_ip_name }}"
         )
         self.declare_parameter("msg_type_suffix", "1")
         fpga_in_topic = self.get_parameter("fpga_in_topic").value
+        timer_period = self.get_parameter("timer_period").value
         msg_type_suffix = self.get_parameter("msg_type_suffix").value
         self.FpgaIn = getattr(
             sys.modules["{{ params.ros2_interface_pkg }}.msg"], "FpgaIn" + msg_type_suffix
@@ -29,7 +31,6 @@ class TalkerNode(Node):
         self.publisher_ = self.create_publisher(
             self.FpgaIn, fpga_in_topic, {{params.qos}}
         )
-        timer_period = 2  # Frequency of publishing
         self.timer = self.create_timer(timer_period, self.timer_callback)
 
     def generate_pub_data(self, msg, field, rand_func, args):
