@@ -4,9 +4,11 @@ import shutil
 import sys
 from itertools import chain
 
+import yaml
+
 from .helpers import (TEMPLATE_DIR, TEMPORARY_OUTPUT_DIR, Params,
                       find_executable, render_to_template, run_sys_cmd)
-import yaml
+
 
 def _build_packages_with_colcon(dev_ws, packages_list):
     """Generate a Vivado block design
@@ -269,7 +271,7 @@ class NodePackage:
                 "program_fpga": False,
             }
             node_name = f"fpga_node_{ip_name}"
-            node_params[node_name] =  {"ros__parameters": params_dict}
+            node_params[node_name] = {"ros__parameters": params_dict}
         return node_params
 
     def _create_talker_params(self, params):
@@ -282,7 +284,7 @@ class NodePackage:
                 "fpga_in_topic": f"fpga_in_topic_{ip_name}",
                 "msg_type_suffix": msg_suffix,
             }
-            node_params[node_name] =  {"ros__parameters": params_dict}
+            node_params[node_name] = {"ros__parameters": params_dict}
         return node_params
 
     def _create_listener_params(self, params):
@@ -295,7 +297,7 @@ class NodePackage:
                 "fpga_out_topic": f"fpga_out_topic_{ip_name}",
                 "msg_type_suffix": msg_suffix,
             }
-            node_params[node_name] =  {"ros__parameters": params_dict}
+            node_params[node_name] = {"ros__parameters": params_dict}
 
         return node_params
 
@@ -462,19 +464,23 @@ class NodePackage:
         if not os.path.exists(config_dir):
             os.makedirs(config_dir)
         fpga_node_params = self._create_fpga_node_params(params)
-        fpga_node_params_file_path = os.path.join(config_dir, "fpga_node_parameters.yaml")
+        fpga_node_params_file_path = os.path.join(
+            config_dir, "fpga_node_parameters.yaml"
+        )
         with open(fpga_node_params_file_path, "w") as f:
             yaml.dump(fpga_node_params, f, default_flow_style=False)
         talker_node_params = self._create_talker_params(params)
-        talker_node_params_file_path = os.path.join(config_dir, "talker_node_parameters.yaml")
+        talker_node_params_file_path = os.path.join(
+            config_dir, "talker_node_parameters.yaml"
+        )
         with open(talker_node_params_file_path, "w") as f:
             yaml.dump(talker_node_params, f, default_flow_style=False)
         listener_node_params = self._create_listener_params(params)
-        listener_node_params_file_path = os.path.join(config_dir, "listener_node_parameters.yaml")
+        listener_node_params_file_path = os.path.join(
+            config_dir, "listener_node_parameters.yaml"
+        )
         with open(listener_node_params_file_path, "w") as f:
             yaml.dump(listener_node_params, f, default_flow_style=False)
-
-
 
 
 def generate_packages(args):
