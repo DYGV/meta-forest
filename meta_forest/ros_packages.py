@@ -6,7 +6,7 @@ from itertools import chain
 
 from .helpers import (TEMPLATE_DIR, TEMPORARY_OUTPUT_DIR, Params,
                       find_executable, render_to_template, run_sys_cmd)
-
+import yaml
 
 def _build_packages_with_colcon(dev_ws, packages_list):
     """Generate a Vivado block design
@@ -256,6 +256,23 @@ class NodePackage:
                 table[ip_name] = i
         return table
 
+    def _create_ros_params(self, params):
+        node_params = {}
+        for i, ip_name in enumerate(params.ip_names):
+            params_dict = {
+                "user_ip": ip_name,
+                "ros2_interface_pkg": params.ros2_interface_pkg,
+                "ros2_interface_in": params.ros2_interface_in,
+                "ros2_interface_out": params.ros2_interface_out,
+                "fpga_in_topic": f"fpga_in_topic_{ip_name}",
+                "fpga_out_topic": f"fpga_out_topic_{ip_name}",}
+            node_name = f"{params.project}_{i}"
+            node_params[node_name] =  {"ros__parameters": params_dict}
+
+        return node_params
+
+
+
     def _render(self, params):
         """Render ROS2-FPGA nodes packages
 
@@ -414,6 +431,15 @@ class NodePackage:
             os.path.join(TEMPORARY_OUTPUT_DIR, "listener_launch.py"),
             os.path.join(launch_dir, "listener_launch.py"),
         )
+
+        config_dir = os.path.join(params.dev_ws, "src", params.project, "config")
+        if not os.path.exists(config_dir):
+            os.makedirs(config_dir)
+        fpga_node_params = self._create_ros_params(params)
+        fpga_node_params_file_path = os.path.join(config_dir, "fpga_node_parameters.yaml")
+        with open(fpga_node_params_file_path, "w") as f:
+            yaml.dump(fpga_node_params, f, default_flow_style=False)
+
 
 
 def generate_packages(args):

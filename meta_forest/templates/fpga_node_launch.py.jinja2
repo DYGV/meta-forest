@@ -1,47 +1,54 @@
-from {{ params.project }} import pynq_driver
+import os
+import yaml
+from ament_index_python.packages import get_package_share_directory
 from launch_ros.actions import Node
 from launch import LaunchDescription
+from launch.substitutions import LaunchConfiguration, TextSubstitution
+from launch.actions import (DeclareLaunchArgument, RegisterEventHandler, OpaqueFunction)
+from launch.event_handlers import OnProcessStart
 
 
-def generate_launch_description():
-    bitfile_path = "{{ params.bitfile_path }}"
-    ros2_interface_pkg = "{{ params.ros2_interface_pkg }}"
-    ros2_interface_in_base = "{{ params.ros2_interface_in_base }}"
-    ros2_interface_out_base = "{{ params.ros2_interface_out_base }}"
-    fpga_in_topic_prefix = "fpga_in_topic_"
-    fpga_out_topic_prefix = "fpga_out_topic_"
-    ip_msg_table = {{ params.ip_msg_table }}
-
+def program_fpga(context, *args,**kwargs):
+    from {{ params.project }} import pynq_driver
+    bitfile_path = kwargs["bitfile_path"].perform(context)
     print(f"Downloading {bitfile_path}")
     pynq_driver.FpgaDriver.program_fpga(bitfile_path)
     print("Done")
 
-    fpga_nodes = [
-        Node(
-            package="{{ params.project }}",
-            {%- if params.ros_distro == "eloquent" %}
-            node_executable="fpga_node",
-            node_name="fpga_node_%s" % ip_name,
-            {%- else %}
-            executable="fpga_node",
-            name="fpga_node_%s" % ip_name,
-            {%- endif %}
-            parameters=[
-                {
-                    "bitfile_path": bitfile_path,
-                    "ros2_interface_pkg": ros2_interface_pkg,
-                    "ros2_interface_in": ros2_interface_in_base + str(msg_suffix),
-                    "ros2_interface_out": ros2_interface_out_base + str(msg_suffix),
-                    "fpga_in_topic": fpga_in_topic_prefix + ip_name,
-                    "fpga_out_topic": fpga_out_topic_prefix + ip_name,
-                    "program_fpga": False,
-                    "bitfile_path": bitfile_path,
-                    "user_ip": ip_name,
-                }
-            ],
-            output="screen",
-            emulate_tty=True,
+def generate_launch_description():
+    bitfile_path = LaunchConfiguration("bitfile_path")
+    bitfile_path_arg= DeclareLaunchArgument("bitfile_path",
+            default_value=TextSubstitution(text="{{ params.bitfile_path }}")
+    )
+
+    param = os.path.join(
+        get_package_share_directory("{{ params.project }}"),
+        "fpga_node_parameters.yaml"
+    )
+
+    config = None
+    fpga_nodes = []
+    with open(param, "r") as f:
+        config = yaml.safe_load(f)
+    for node_name, value in config.items():
+        params = value["ros__parameters"]
+        fpga_nodes.append(
+            Node(
+                package="{{ params.project }}",
+                node_executable="fpga_node",
+                node_name=node_name,
+                parameters=[params],
+                output="screen",
+                emulate_tty=True,
+            )
         )
-        for ip_name, msg_suffix in ip_msg_table.items()
-    ]
-    return LaunchDescription(fpga_nodes)
+
+    program_handler = RegisterEventHandler(
+            OnProcessStart(
+                target_action=fpga_nodes[0],
+                on_start=[
+                    OpaqueFunction(function=program_fpga, kwargs={"bitfile_path": bitfile_path}),
+                ]
+            )
+        )
+    return LaunchDescription([bitfile_path_arg, program_handler, *fpga_nodes])
