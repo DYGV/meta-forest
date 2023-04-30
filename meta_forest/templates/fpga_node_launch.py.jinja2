@@ -20,12 +20,10 @@ def generate_launch_description():
     bitfile_path_arg= DeclareLaunchArgument("bitfile_path",
             default_value=TextSubstitution(text="{{ params.bitfile_path }}")
     )
-
     param = os.path.join(
         get_package_share_directory("{{ params.project }}"),
         "fpga_node_parameters.yaml"
     )
-
     config = None
     fpga_nodes = []
     with open(param, "r") as f:
@@ -47,7 +45,6 @@ def generate_launch_description():
                 emulate_tty=True,
             )
         )
-
     program_handler = RegisterEventHandler(
             OnProcessStart(
                 target_action=fpga_nodes[0],
