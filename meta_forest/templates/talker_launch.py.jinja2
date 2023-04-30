@@ -22,8 +22,13 @@ def generate_launch_description():
         talker_nodes.append(
             Node(
                 package="{{ params.project }}",
+                {%- if params.ros_distro == "eloquent" %}
                 node_executable="talker",
                 node_name=node_name,
+                {%- else %}
+                executable="talker",
+                name=node_name,
+                {%- endif %}
                 parameters=[params],
                 output="screen",
                 emulate_tty=True,
