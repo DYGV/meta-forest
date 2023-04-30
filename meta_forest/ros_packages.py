@@ -256,7 +256,7 @@ class NodePackage:
                 table[ip_name] = i
         return table
 
-    def _create_ros_params(self, params):
+    def _create_fpga_node_params(self, params):
         node_params = {}
         for i, ip_name in enumerate(params.ip_names):
             params_dict = {
@@ -265,13 +265,39 @@ class NodePackage:
                 "ros2_interface_in": params.ros2_interface_in,
                 "ros2_interface_out": params.ros2_interface_out,
                 "fpga_in_topic": f"fpga_in_topic_{ip_name}",
-                "fpga_out_topic": f"fpga_out_topic_{ip_name}",}
-            node_name = f"{params.project}_{i}"
+                "fpga_out_topic": f"fpga_out_topic_{ip_name}",
+                "program_fpga": False,
+            }
+            node_name = f"fpga_node_{ip_name}"
+            node_params[node_name] =  {"ros__parameters": params_dict}
+        return node_params
+
+    def _create_talker_params(self, params):
+        node_params = {}
+        for i, ip_name in enumerate(params.ip_names):
+            node_name = f"talker_{ip_name}"
+            msg_suffix = str(params.ip_msg_table[ip_name])
+            params_dict = {
+                "timer_period": 1.0,
+                "fpga_in_topic": f"fpga_in_topic_{ip_name}",
+                "msg_type_suffix": msg_suffix,
+            }
+            node_params[node_name] =  {"ros__parameters": params_dict}
+        return node_params
+
+    def _create_listener_params(self, params):
+        node_params = {}
+
+        for i, ip_name in enumerate(params.ip_names):
+            node_name = f"listener_{ip_name}"
+            msg_suffix = str(params.ip_msg_table[ip_name])
+            params_dict = {
+                "fpga_out_topic": f"fpga_out_topic_{ip_name}",
+                "msg_type_suffix": msg_suffix,
+            }
             node_params[node_name] =  {"ros__parameters": params_dict}
 
         return node_params
-
-
 
     def _render(self, params):
         """Render ROS2-FPGA nodes packages
@@ -435,10 +461,19 @@ class NodePackage:
         config_dir = os.path.join(params.dev_ws, "src", params.project, "config")
         if not os.path.exists(config_dir):
             os.makedirs(config_dir)
-        fpga_node_params = self._create_ros_params(params)
+        fpga_node_params = self._create_fpga_node_params(params)
         fpga_node_params_file_path = os.path.join(config_dir, "fpga_node_parameters.yaml")
         with open(fpga_node_params_file_path, "w") as f:
             yaml.dump(fpga_node_params, f, default_flow_style=False)
+        talker_node_params = self._create_talker_params(params)
+        talker_node_params_file_path = os.path.join(config_dir, "talker_node_parameters.yaml")
+        with open(talker_node_params_file_path, "w") as f:
+            yaml.dump(talker_node_params, f, default_flow_style=False)
+        listener_node_params = self._create_listener_params(params)
+        listener_node_params_file_path = os.path.join(config_dir, "listener_node_parameters.yaml")
+        with open(listener_node_params_file_path, "w") as f:
+            yaml.dump(listener_node_params, f, default_flow_style=False)
+
 
 
 

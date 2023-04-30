@@ -1,30 +1,33 @@
-from launch_ros.actions import Node
+import os
+import yaml
 
+from ament_index_python.packages import get_package_share_directory
+from launch_ros.actions import Node
 from launch import LaunchDescription
 
 
 def generate_launch_description():
-    ip_msg_table = {{ params.ip_msg_table }}
-    return LaunchDescription(
-        [
+
+    param = os.path.join(
+        get_package_share_directory("{{ params.project }}"),
+        "listener_node_parameters.yaml"
+    )
+
+    config = None
+    listener_nodes = []
+    with open(param, "r") as f:
+        config = yaml.safe_load(f)
+    for node_name, value in config.items():
+        params = value["ros__parameters"]
+        listener_nodes.append(
             Node(
                 package="{{ params.project }}",
-                {%- if params.ros_distro == "eloquent" %}
                 node_executable="listener",
-                node_name="listener_%s" % ip_name,
-                {%- else %}
-                executable="listener",
-                name="listener_%s" % ip_name,
-                {%- endif %}
-                parameters=[
-                    {
-                        "fpga_out_topic": "fpga_out_topic_%s" % ip_name,
-                        "msg_type_suffix": str(msg_suffix),
-                    }
-                ],
+                node_name=node_name,
+                parameters=[params],
                 output="screen",
                 emulate_tty=True,
             )
-            for ip_name, msg_suffix in ip_msg_table.items()
-        ]
-    )
+        )
+    return LaunchDescription(listener_nodes)
+
