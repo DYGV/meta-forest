@@ -66,4 +66,4 @@ You can learn how to use meta-FOrEST through examples.
 
 - [2] D. Pinheiro Leal, M. Sugaya, H. Amano, T. Ohkawa "FPGA Acceleration of ROS2-Based Reinforcement Learning Agents", CANDAR'20 - 8th International Workshop on Computer Systems and Architectures (CSA'20), 2020.  
 
-- [3] 岡崎英佑 (東海大), 菅谷みどり (芝浦工大), 大川猛 (東海大), “MEC向けROS2-FPGAノードの並列処理性能評価”, 情報処理学会 第85回全国大会 7K-03, 2023年3月.
+- [3] 岡崎英佑, 菅谷みどり, 大川猛, “MEC向けROS2-FPGAノードの並列処理性能評価”, 情報処理学会 第85回全国大会 7K-03, 2023年3月.
